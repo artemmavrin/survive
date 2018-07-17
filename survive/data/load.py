@@ -46,8 +46,8 @@ def load_channing():
     This is the `channing` dataset in the R package `boot`. From the package
     description (Canty & Ripley (2017)):
 
-        Channing House is a retirement centre  in Palo Alto, California.
-        These data were collected between the opening of the house in 1964 until
+        Channing House is a retirement centre in Palo Alto, California. These
+        data were collected between the opening of the house in 1964 until
         July 1, 1975. In that time 97 men and 365 women passed through the
         centre. For each of these, their age on entry and also on leaving or
         death was recorded. A large number of the observations were censored
