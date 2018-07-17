@@ -283,8 +283,8 @@ class KaplanMeier(Model, Fittable, Predictor):
         with np.errstate(divide="ignore", invalid="ignore"):
             return np.maximum(lower, 0.), np.minimum(upper, 1.)
 
-    def plot(self, ax=None, marker=True, marker_kwargs=None, ci=False,
-             ci_kwargs=None, **kwargs):
+    def plot(self, ax=None, marker=True, marker_kwargs=None, ci=True,
+             ci_kwargs=None, legend=True, legend_kwargs=None, **kwargs):
         """Plot the Kaplan-Meier survival curve.
 
         Parameters
@@ -301,6 +301,10 @@ class KaplanMeier(Model, Fittable, Predictor):
         ci_kwargs : dict, optional (default: None)
             Additional keyword parameters to pass to step() or fill_between()
             when plotting the confidence band.
+        legend : bool, optional (default: True)
+            Indicates whether to display a legend for the plot.
+        legend_kwargs : dict, optional (default: None)
+            Keyword parameters to pass to legend().
         **kwargs : keyword arguments
             Additional keyword arguments to pass to the step() function.
 
@@ -350,6 +354,13 @@ class KaplanMeier(Model, Fittable, Predictor):
         x_min, _ = ax.get_xlim()
         y_min, _ = ax.get_ylim()
         ax.set(xlim=(max(x_min, 0), None), ylim=(min(y_min, 0), None))
+
+        # Display the legend
+        if legend:
+            legend_params = dict(loc="best", frameon=True, shadow=True)
+            if legend_kwargs is not None:
+                legend_params.update(legend_kwargs)
+            ax.legend(**legend_params)
 
         return ax
 
