@@ -12,7 +12,7 @@ def _full_filename(filename):
     return cwd.joinpath("data", filename)
 
 
-def load_leukemia():
+def leukemia():
     """Load the leukemia data from Table 1.1 of Cox & Oakes (1984).
 
     The data consist of times of remission of two groups of leukaemia patients.
@@ -40,7 +40,7 @@ def load_leukemia():
     return pd.read_csv(_full_filename("leukemia.csv"), header=0)
 
 
-def load_channing():
+def channing():
     """Load the Channing House retirement home data from Hyde (1980).
 
     This is the `channing` dataset in the R package `boot`. From the package

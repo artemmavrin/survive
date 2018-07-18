@@ -1,1 +1,1 @@
-include survive/data/data/*.csv
+include survive/datasets/data/*.csv
