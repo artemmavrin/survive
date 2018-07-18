@@ -55,8 +55,8 @@ class Model(metaclass=abc.ABCMeta):
             identical model.
         """
         name = self.__class__.__name__
-        param_names = inspect.signature(self.__init__).parameters.keys()
-        kwargs = [f"{k}={repr(getattr(self, k))}" for k in param_names]
+        keys = inspect.signature(self.__init__).parameters.keys()
+        kwargs = (f"{k}={repr(getattr(self, k))}" for k in keys)
         return name + "(" + ", ".join(kwargs) + ")"
 
     @property
@@ -87,7 +87,7 @@ class Summary(object):
 
     def __str__(self):
         """Return a basic string representation of the model."""
-        return f"{self.model.model_type}\n{repr(self.model)}"
+        return f"{repr(self.model)}\n\n{self.model.model_type}"
 
 
 class Fittable(metaclass=abc.ABCMeta):
