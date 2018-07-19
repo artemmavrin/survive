@@ -1,23 +1,28 @@
 """The Kaplan-Meier estimator for non-parametric survival function estimation.
 
 The Kaplan-Meier estimator is also called the product-limit estimator. For a
-quick introduction, see Section 4.2 in Cox & Oakes (1984).
+quick introduction, see Section 4.2 in Cox & Oakes (1984) or Section 1.4.1 in
+Kalbfleisch & Prentice (2002).
 
 References
 ----------
-    *  E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
-       observations". Journal of the American Statistical Association, Volume
-       53, Issue 282 (1958), pp. 457--481. doi: https://doi.org/10.2307/2281868
-    *  D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall, London
-       (1984), pp. ix+201.
+    * E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
+      observations". Journal of the American Statistical Association, Volume 53,
+      Issue 282 (1958), pp. 457--481. doi: https://doi.org/10.2307/2281868
+    * D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall, London
+      (1984), pp. ix+201.
+    * John D. Kalbfleisch and Ross L. Prentice. The Statistical Analysis of
+      Failure Time Data. Second Edition. Wiley (2002) pp. xiv+439.
 """
+
+import itertools
 
 import numpy as np
 import pandas as pd
 import scipy.stats as st
 
 from ..base import Model, Summary, Fittable, Predictor
-from ..data import SurvivalData
+from ..base import SurvivalData
 from ..utils import check_data_1d, check_float
 
 
@@ -31,15 +36,19 @@ class KaplanMeier(Model, Fittable, Predictor):
     summary : KaplanMeierSummary
         A summary of this Kaplan-Meier estimator.
     conf_type : str
-        Type of confidence intervals for the survival function S(t) to report.
-        Possible values:
-            * "normal"
+        Type of confidence intervals for the survival function estimate S(t) to
+        report. Possible values:
+            * "plain"
                 Use a normal approximation to construct confidence intervals for
                 S(t) directly.
+            * "log"
+                Derive confidence intervals for S(t) from normal approximation
+                confidence intervals for the cumulative hazard function estimate
+                -log(S(t)).
             * "log-log"
-                Use a normal approximation to construct confidence intervals for
-                log(-log(S(t)) and transform this back to get confidence
-                intervals for S(t).
+                Derive confidence intervals for S(t) from normal approximation
+                confidence intervals for the log cumulative hazard function
+                estimate log(-log(S(t))).
     conf_level : float
         Confidence level of the confidence intervals.
     """
@@ -50,19 +59,8 @@ class KaplanMeier(Model, Fittable, Predictor):
     _conf_type: str
     _conf_level: float
 
-    # Distinct true failure times
-    _fail: np.ndarray
-
-    # Distinct censored times
-    _censor: np.ndarray
-
-    # Number of failures (deaths) at each true failure time
-    _d: np.ndarray
-
-    # Size of the risk set at each true failure time
-    _r: np.ndarray
-
-    # Estimate of the survival function at each observed failure time.
+    # Estimate of the survival function at each observed failure time within
+    # each group.
     _survival: np.ndarray
 
     @property
@@ -73,7 +71,7 @@ class KaplanMeier(Model, Fittable, Predictor):
     @conf_type.setter
     def conf_type(self, conf_type):
         """Set the type of confidence interval."""
-        if conf_type in ("normal", "log-log"):
+        if conf_type in ("plain", "log", "log-log"):
             self._conf_type = conf_type
         else:
             raise ValueError(f"Invalid value for 'conf_type': {conf_type}")
@@ -94,16 +92,19 @@ class KaplanMeier(Model, Fittable, Predictor):
         Parameters
         ----------
         conf_type : str
-            Type of confidence intervals for the survival function S(t) to
-            report.
-            Possible values:
-                * "normal"
+            Type of confidence intervals for the survival function estimate S(t)
+            to report. Possible values:
+                * "plain"
                     Use a normal approximation to construct confidence intervals
                     for S(t) directly.
+                * "log"
+                    Derive confidence intervals for S(t) from normal
+                    approximation confidence intervals for the cumulative hazard
+                    function estimate -log(S(t)).
                 * "log-log"
-                    Use a normal approximation to construct confidence intervals
-                    for log(-log(S(t)) and transform this back to get confidence
-                    intervals for S(t).
+                    Derive confidence intervals for S(t) from normal
+                    approximation confidence intervals for the log cumulative
+                    hazard function estimate log(-log(S(t))).
         conf_level : float
             Confidence level of the confidence intervals.
         """
@@ -111,21 +112,36 @@ class KaplanMeier(Model, Fittable, Predictor):
         self.conf_type = conf_type
         self.conf_level = conf_level
 
-    def fit(self, time, event=None, entry=None):
+    def fit(self, time, status=None, entry=None, group=None, data=None):
         """Fit the Kaplan-Meier estimator to survival data.
 
         Parameters
         ----------
-        time : Lifetime or array-like of shape (n,)
-            Observed times.
-        event : array-like, of shape (n,), optional (default: None)
-            Vector of 0's and 1's, 0 indicating a right-censored event, 1
-            indicating a failure. This is ignored if `time` is already a
-            Lifetime object.
-        entry : array-like, one-dimensional, optional (default: None)
-            Entry times of the observations (for left-truncated data). If not
-            provided, the entry time for each observation is set to 0. This is
-            ignored if `time` is already a Lifetime object.
+        time : SurvivalData or one-dimensional array-like or str
+            The observed times. If the DataFrame parameter `data` is provided,
+            this can be the name of a column in `data` from which to get the
+            observed times. If this is a SurvivalData instance, then all other
+            parameters are ignored.
+        status : one-dimensional array-like or string, optional (default: None)
+            Censoring indicators. 0 means a right-censored observation, 1 means
+            a true failure/event. If not provided, it is assumed that there is
+            no censoring.  If the DataFrame parameter `data` is provided,
+            this can be the name of a column in `data` from which to get the
+            censoring indicators.
+        entry : one-dimensional array-like or string, optional (default: None)
+            Entry/birth times of the observations (for left-truncated data). If
+            not provided, the entry time for each observation is set to 0. If
+            the DataFrame parameter `data` is provided, this can be the name of
+            a column in `data` from which to get the entry times.
+        group : one-dimensional array-like or string, optional (default: None)
+            Group/stratum labels for each observation. If not provided, the
+            entire sample is taken as a single group. If the DataFrame parameter
+            `data` is provided, this can be the name of a column in `data` from
+            which to get the group labels.
+        data : pandas.DataFrame, optional (default: None)
+            Optional DataFrame from which to extract the data. If this parameter
+            is specified, then the parameters `time`, `status`, `entry`, and
+            `group` can be column names of this DataFrame.
 
         Returns
         -------
@@ -135,41 +151,90 @@ class KaplanMeier(Model, Fittable, Predictor):
         if isinstance(time, SurvivalData):
             self.data = time
         else:
-            self.data = SurvivalData(time=time, event=event, entry=entry)
-
-        # Extract values of interest from the survival data
-        mask = (self.data.n_fail > 0)
-        self._fail = self.data.time[mask]
-        self._d = self.data.n_fail[mask]
-        self._r = self.data.n_at_risk[mask]
-        self._censor = self.data.time[self.data.n_censor > 0]
+            self.data = SurvivalData(time=time, status=status, entry=entry,
+                                     group=group, data=data)
 
         # Compute the Kaplan-Meier product-limit estimator at the distinct
-        # failure times
-        self._survival = np.cumprod(1. - self._d / self._r)
+        # failure times within each group
+        self._survival = np.empty(self.data.n_groups, dtype=object)
+        for i in range(self.data.n_groups):
+            e = self.data.n_events[i]
+            r = self.data.n_at_risk[i]
+            self._survival[i] = np.cumprod(1. - e / r)
 
         self.fitted = True
         return self
 
-    def predict(self, time):
+    def predict(self, time, group=None):
         """Estimate the survival probability at the given times.
 
         Parameters
         ----------
         time : array-like
             One-dimensional array of non-negative times.
+        group : group label or None, optional (default: None)
+            Specify the group whose survival probability estimates should be
+            returned. Ignored if there is only one group. If not specified,
+            survival estimates for all the groups are returned.
 
         Returns
         -------
-        prob : one-dimensional numpy.ndarray
-            Estimated probabilities of exceeding the times in `time`.
+        prob : float or one-dimensional numpy.ndarray or pandas.DataFrame
+            Estimated survival probabilities.
+            Possible shapes:
+                * If there is only one group or if a group is specified, then
+                  this is either a float or a one-dimensional array depending on
+                  whether the parameter `time` is a scalar or a one-dimensional
+                  array with at least two elements, respectively.
+                * If there is more than one group and no group is specified,
+                  then this is a pandas.DataFrame with as many rows as entries
+                  in `time` and one column for each group.
         """
-        self.check_fitted()
-        time = check_data_1d(time)
-        ind = np.searchsorted(self._fail, time, side="right")
-        return np.concatenate(([1.], self._survival))[ind]
+        if group in self.data.groups:
+            self.check_fitted()
+            time = check_data_1d(time)
+            i = np.flatnonzero(self.data.groups == group)[0]
+            ind = np.searchsorted(self.data.time[i], time, side="right")
+            return np.concatenate(([1.], self._survival[i]))[ind]
+        elif self.data.n_groups == 1:
+            return self.predict(time, group=self.data.groups[0])
+        elif group is None:
+            return pd.DataFrame({group: self.predict(time, group=group)
+                                 for group in self.data.groups})
+        else:
+            raise ValueError(f"Not a known group label: {group}.")
 
-    def var(self, time):
+    def _greenwood_sum(self, time, group_index):
+        """Get the sum occurring in Greenwood's formula (Greenwood 1926) for the
+        standard error of the survival function estimate and related estimates.
+
+        Warning: this function does no validation of any kind.
+
+        Parameters
+        ----------
+        time : array-like
+            One-dimensional array of non-negative times.
+        group_index : int
+            The index of the group being looked at.
+
+        Returns
+        -------
+        greenwood_sum : float or numpy.ndarray
+            The sum used in Greenwood's formula.
+
+        References
+        ----------
+        M. Greenwood. "The natural duration of cancer". Reports on Public Health
+            and Medical Subjects. Volume 33 (1926), pp. 1--26
+        """
+        ind = np.searchsorted(self.data.time[group_index], time, side="right")
+        e = self.data.n_events[group_index]
+        r = self.data.n_at_risk[group_index]
+        with np.errstate(divide="ignore", invalid="ignore"):
+            a = np.concatenate(([0], e / r / (r - e)))
+        return np.cumsum(a)[ind]
+
+    def var(self, time, group=None):
         """Estimate the variance of the estimated survival probability at the
         given times using Greenwood’s formula (Greenwood 1926).
 
@@ -177,27 +242,45 @@ class KaplanMeier(Model, Fittable, Predictor):
         ----------
         time : array-like
             One-dimensional array of non-negative times.
+        group : group label or None, optional (default: None)
+            Specify the group whose variance estimates should be returned.
+            Ignored if there is only one group. If not specified, variance
+            estimates for all the groups are returned.
 
         Returns
         -------
-        var : float or numpy.ndarray
+        var : float or numpy.ndarray or pandas.DataFrame
             The variance estimate.
+            Possible shapes:
+                * If there is only one group or if a group is specified, then
+                  this is either a float or a one-dimensional array depending on
+                  whether the parameter `time` is a scalar or a one-dimensional
+                  array with at least two elements, respectively.
+                * If there is more than one group and no group is specified,
+                  then this is a pandas.DataFrame with as many rows as entries
+                  in `time` and one column for each group.
 
         References
         ----------
         M. Greenwood. "The natural duration of cancer". Reports on Public Health
             and Medical Subjects. Volume 33 (1926), pp. 1--26
         """
-        self.check_fitted()
-        time = check_data_1d(time)
-        ind = np.searchsorted(self._fail, time, side="right")
-        with np.errstate(divide="ignore", invalid="ignore"):
-            # TODO: better variable names here
-            a = self._d / self._r / (self._r - self._d)
-            b = np.concatenate(([0.], np.cumsum(a)))
-            return b[ind] * (self.predict(time) ** 2)
+        if group in self.data.groups:
+            self.check_fitted()
+            time = check_data_1d(time)
+            i = np.flatnonzero(self.data.groups == group)[0]
+            prob = self.predict(time, group=group)
+            with np.errstate(invalid="ignore"):
+                return self._greenwood_sum(time, i) * (prob ** 2)
+        elif self.data.n_groups == 1:
+            return self.var(time, group=self.data.groups[0])
+        elif group is None:
+            return pd.DataFrame({group: self.var(time, group=group)
+                                 for group in self.data.groups})
+        else:
+            raise ValueError(f"Not a known group label: {group}.")
 
-    def se(self, time):
+    def se(self, time, group=None):
         """Estimate the standard error of the estimated survival probability at
         the given times using Greenwood’s formula (Greenwood 1926).
 
@@ -205,108 +288,168 @@ class KaplanMeier(Model, Fittable, Predictor):
         ----------
         time : array-like
             One-dimensional array of non-negative times.
+        group : group label or None, optional (default: None)
+            Specify the group whose standard error estimates should be returned.
+            Ignored if there is only one group. If not specified, standard error
+            estimates for all the groups are returned.
 
         Returns
         -------
-        std : float or numpy.ndarray
-            The standard deviation estimate.
+        std : float or numpy.ndarray or pandas.DataFrame
+            The standard error estimate.
+            Possible shapes:
+                * If there is only one group or if a group is specified, then
+                  this is either a float or a one-dimensional array depending on
+                  whether the parameter `time` is a scalar or a one-dimensional
+                  array with at least two elements, respectively.
+                * If there is more than one group and no group is specified,
+                  then this is a pandas.DataFrame with as many rows as entries
+                  in `time` and one column for each group.
 
         References
         ----------
         M. Greenwood. "The natural duration of cancer". Reports on Public Health
             and Medical Subjects. Volume 33 (1926), pp. 1--26
         """
-        return np.sqrt(self.var(time))
+        return np.sqrt(self.var(time, group=group))
 
-    def ci(self, time):
-        """Compute confidence intervals for the survival probabilities.
+    def ci(self, time, group=None):
+        """Compute confidence intervals for the survival function estimate S(t).
 
-        If conf_type is "normal", then the normal confidence interval
-            max(S(t) + q * SE(S(t)), 0), min(S(t) - q * SE(S(t)), 1)
-        is computed, where S(t) is the estimate of the survival function at time
-        t, q is the (1-conf_level)/2 quantile of the standard normal
-        distribution, and SE(S(t)) is the standard error of S(t) computed using
+        In the following formulas, z denotes the (1-conf_level)/2 quantile of
+        the standard normal distribution.
+
+        If conf_type is "plain", then the confidence interval is
+            [max(S(t) + z*SE, 0), min(S(t) - z*SE, 1)],
+        where SE is the standard error estimate of S(t) computed using
         Greenwood's formula (Greenwood 1926).
 
+        If conf_type is "log", then the confidence interval is
+            [S(t) * exp(z*SE), min(S(t) * exp(-z*SE), 1)],
+        where SE is the standard error estimate of the cumulative hazard
+        function estimate -log(S(t)), computed using the delta method (similar
+        to Greenwood's formula).
+
         If conf_type is "log-log", then the confidence interval is
-            S(t) ** exp(c), S(t) ** exp(-c),
-        where S(t) is the estimate of the survival function at time t, and
-            c = q * SE(log(-log(S(t))),
-        where q is the (1-conf_level)/2 quantile of the standard normal
-        distribution and SE(log(-log(S(t))) is computed using the delta method.
-        See Kalbfleisch & Prentice (2002).
+           [S(t) ** exp(z*SE), S(t) ** exp(-z*SE)],
+        where SE is the standard error estimate of the log cumulative hazard
+        function estimate log(-log(S(t))), computed using the delta method
+        (similar to Greenwood's formula).
 
         Parameters
         ----------
         time : array-like, one-dimensional
             One-dimensional array of non-negative times.
+        group : group label or None, optional (default: None)
+            Specify the group whose confidence intervals should be returned.
+            Ignored if there is only one group. If not specified, confidence
+            intervals for all the groups are returned.
 
         Returns
         -------
-        lower : one-dimensional numpy.ndarray
-        upper : one-dimensional numpy.ndarray
+        lower : float or one-dimensional numpy.ndarray or pandas.DataFrame
+        upper : float or one-dimensional numpy.ndarray or pandas.DataFrame
             Lower and upper confidence interval bounds.
+            Possible shapes:
+                * If there is only one group or if a group is specified, then
+                  these are either floats or one-dimensional arrays depending
+                  on whether the parameter `time` is a scalar or a
+                  one-dimensional array with at least two elements,
+                  respectively.
+                * If there is more than one group and no group is specified,
+                  then these are pandas.DataFrames with as many rows as entries
+                  in `time` and one column for each group.
 
         References
         ----------
         M. Greenwood. "The natural duration of cancer". Reports on Public Health
             and Medical Subjects. Volume 33 (1926), pp. 1--26.
-        John D. Kalbfleisch and Ross L. Prentice. The Statistical Analysis of
-            Failure Time Data. Second Edition. Wiley (2002) pp. xiv+439.
         """
-        self.check_fitted()
+        if group in self.data.groups:
+            self.check_fitted()
+            time = check_data_1d(time)
 
-        time = check_data_1d(time)
+            # Get group index
+            i = np.flatnonzero(self.data.groups == group)[0]
 
-        # Standard normal quantiles
-        q = st.norm.ppf((1 - self.conf_level) / 2)
+            # Standard normal quantile
+            z = st.norm.ppf((1 - self.conf_level) / 2)
 
-        # Estimated survival probabilities
-        survival = self.predict(time)
+            # Estimated survival probabilities
+            survival = self.predict(time, group=group)
 
-        if self.conf_type == "log-log":
-            # Log-log CI
-            ind = np.searchsorted(self._fail, time, side="right")
-            with np.errstate(divide="ignore", invalid="ignore"):
-                # TODO: better variable names here
-                a = self._d / self._r / (self._r - self._d)
-                b = np.concatenate(([0.], np.cumsum(a)))
-                c = q * np.sqrt(b[ind]) / np.log(survival)
-                lower = survival ** (np.exp(c))
-                upper = survival ** (np.exp(-c))
+            if self.conf_type == "plain":
+                # Normal approximation CI
+                se = self.se(time, group=group)
+                lower = survival + z * se
+                upper = survival - z * se
+            elif self.conf_type == "log":
+                # CI based on a CI for the cumulative hazard -log(S(t))
+                with np.errstate(invalid="ignore"):
+                    c = z * np.sqrt(self._greenwood_sum(time, i))
+                    lower = survival * np.exp(c)
+                    upper = survival * np.exp(-c)
+            elif self.conf_type == "log-log":
+                # CI based on a CI for log(-log(S(t)))
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    log_s = np.log(survival)
+                    c = z * np.sqrt(self._greenwood_sum(time, i)) / log_s
+                    lower = survival ** (np.exp(c))
+                    upper = survival ** (np.exp(-c))
+            else:
+                # This should not be reachable
+                raise ValueError(
+                    f"Invalid confidence interval type: {self.conf_type}.")
+
+            with np.errstate(invalid="ignore"):
+                return np.maximum(lower, 0.), np.minimum(upper, 1.)
+        elif self.data.n_groups == 1:
+            return self.ci(time, group=self.data.groups[0])
+        elif group is None:
+            ls = np.empty(self.data.n_groups, dtype=object)
+            us = np.empty(self.data.n_groups, dtype=object)
+            for i, g in enumerate(self.data.groups):
+                ls[i], us[i] = self.ci(time, g)
+            lower = pd.DataFrame({g: l for g, l in zip(self.data.groups, ls)})
+            upper = pd.DataFrame({g: u for g, u in zip(self.data.groups, us)})
+            return lower, upper
         else:
-            # Normal approximation CI
-            se = self.se(time)
-            lower = survival + q * se
-            upper = survival - q * se
+            raise ValueError(f"Not a known group label: {group}.")
 
-        with np.errstate(divide="ignore", invalid="ignore"):
-            return np.maximum(lower, 0.), np.minimum(upper, 1.)
-
-    def plot(self, ax=None, marker=True, marker_kwargs=None, ci=True,
-             ci_kwargs=None, legend=True, legend_kwargs=None, **kwargs):
+    def plot(self, *groups, ci=True, ci_kwargs=None, mark_censor=True,
+             mark_censor_kwargs=None, legend=True, legend_kwargs=None,
+             color=None, ax=None, **kwargs):
         """Plot the Kaplan-Meier survival curve.
 
         Parameters
         ----------
-        ax : matplotlib.axes.Axes, optional (default: None)
-            The axes on which to draw the line. If this is not specified, the
-            current axis will be used.
-        marker : bool, optional (default: True)
-            If True, indicate the censored times by markers on the plot.
-        marker_kwargs : dict, optional (default: None)
-            Additional keyword parameters to pass to scatter() when
+        *groups: list of group labels
+            Specify the groups whose estimated survival curves should be
+            plotted. If none are given, the survival curves for all groups are
+            plotted.
         ci : bool, optional (default: False)
             If True, draw point-wise confidence intervals (confidence bands).
         ci_kwargs : dict, optional (default: None)
             Additional keyword parameters to pass to step() or fill_between()
             when plotting the confidence band.
+        mark_censor : bool, optional (default: True)
+            If True, indicate the censored times by markers on the plot.
+        mark_censor_kwargs : dict, optional (default: None)
+            Additional keyword parameters to pass to scatter() when marking
+            censored times.
         legend : bool, optional (default: True)
             Indicates whether to display a legend for the plot.
         legend_kwargs : dict, optional (default: None)
             Keyword parameters to pass to legend().
+        color : str or sequence, optional (default: None)
+            Colors for each group's survival curve. This can be a string if only
+            one curve is to be plotted.
+        ax : matplotlib.axes.Axes, optional (default: None)
+            The axes on which to draw the line. If this is not specified, the
+            current axis will be used.
         **kwargs : keyword arguments
-            Additional keyword arguments to pass to the step() function.
+            Additional keyword arguments to pass to the step() function when
+            plotting survival curves.
 
         Returns
         -------
@@ -314,46 +457,69 @@ class KaplanMeier(Model, Fittable, Predictor):
         """
         self.check_fitted()
 
+        if not groups:
+            groups = self.data.groups
+
+        if color is not None:
+            if (len(groups) > 1 and ((not (isinstance(color, list)
+                                           or isinstance(color, tuple)))
+                                     or len(color) != len(groups))):
+                raise ValueError("When plotting several curves, parameter "
+                                 "'color' must be a list or tuple containing "
+                                 "as many colors as groups.")
+            if len(groups) == 1 and not isinstance(color, str):
+                raise ValueError("When plotting a single curve, parameter "
+                                 "'color' must be a string.")
+            color = iter(color) if len(groups) > 1 else itertools.repeat(color)
+
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
 
-        # Plot the survival curve
-        x = self.data.time
-        y = self.predict(x)
-        params = dict(where="post", label=self.model_type, zorder=3)
-        params.update(kwargs)
-        p = ax.step(x, y, **params)
+        # Plot the survival curves
+        for i, group in enumerate(groups):
+            x = np.unique(self.data.data.time[self.data.data.group == group])
+            y = self.predict(x, group=group)
+            label = f"{self.model_type}"
+            if len(groups) > 1:
+                label += f" ({group})"
+            params = dict(where="post", label=label, zorder=3)
+            if color is not None:
+                params["color"] = next(color)
+            params.update(kwargs)
+            p = ax.step(x, y, **params)
 
-        # Mark the censored times
-        if marker and self._censor.shape[0] != 0:
-            color = p[0].get_color()
-            marker_params = dict(marker="+", color=color, zorder=3)
-            if marker_kwargs is not None:
-                marker_params.update(marker_kwargs)
-            xx = self._censor
-            yy = self.predict(xx)
-            ax.scatter(xx, yy, **marker_params)
+            # Mark the censored times
+            if mark_censor and self.data.censor[i].shape[0] != 0:
+                c = p[0].get_color()
+                marker_params = dict(marker="+", color=c, zorder=3)
+                if mark_censor_kwargs is not None:
+                    marker_params.update(mark_censor_kwargs)
+                xx = self.data.censor[i]
+                yy = self.predict(xx, group=group)
+                ax.scatter(xx, yy, **marker_params)
 
-        # Plot the confidence bands
-        if ci:
-            lower, upper = self.ci(x)
-            label = f"{self.conf_level:.0%} {self.conf_type} C.I."
-            color = p[0].get_color()
-            alpha = 0.4 * params.get("alpha", 1.)
-            ci_params = dict(color=color, alpha=alpha, label=label, step="post",
-                             zorder=2)
-            if ci_kwargs is not None:
-                ci_params.update(ci_kwargs)
-            ind = (~np.isnan(lower)) * (~np.isnan(upper))
-            ax.fill_between(x[ind], lower[ind], upper[ind], **ci_params)
+            # Plot the confidence bands
+            if ci:
+                lower, upper = self.ci(x, group=group)
+                label = f"{self.conf_level:.0%} {self.conf_type} C.I."
+                if len(groups) > 1:
+                    label += f" ({group})"
+                c = p[0].get_color()
+                alpha = 0.4 * params.get("alpha", 1.)
+                ci_params = dict(color=c, alpha=alpha, label=label,
+                                 step="post", zorder=2)
+                if ci_kwargs is not None:
+                    ci_params.update(ci_kwargs)
+                ind = (~np.isnan(lower)) * (~np.isnan(upper))
+                ax.fill_between(x[ind], lower[ind], upper[ind], **ci_params)
 
         # Configure axes
         ax.set(xlabel="Time", ylabel="Survival Probability")
         ax.autoscale(enable=True, axis="x")
         x_min, _ = ax.get_xlim()
-        y_min, _ = ax.get_ylim()
-        ax.set(xlim=(max(x_min, 0), None), ylim=(min(y_min, 0), None))
+        y_min, y_max = ax.get_ylim()
+        ax.set(xlim=(max(x_min, 0), None), ylim=(min(y_min, 0), max(y_max, 1)))
 
         # Display the legend
         if legend:
@@ -384,59 +550,76 @@ class KaplanMeierSummary(Summary):
     ----------
     model : KaplanMeier
         The Kaplan-Meier estimator being summarized.
-    survival_table : pandas.DataFrame
-        DataFrame summarizing the survival estimates at each observed time.
     """
     model: KaplanMeier
 
-    @property
-    def survival_table(self):
-        """DataFrame summarizing the survival estimates at each observed time.
+    def table(self, group=None):
+        """DataFrame summarizing the survival estimates at each observed time
+        within a group.
+
+        Parameters
+        ----------
+        group : group label, optional (default: None)
+            Specify the group whose survival table should be returned. Ignored
+            if there is only one group. If not specified, a list of the survival
+            tables for all the groups is returned (if there is only one group,
+            then a single table is returned).
 
         Returns
         -------
-        survival_table : pandas.DataFrame
-            DataFrame summarizing the survival estimates at each observed time.
-            Columns:
-                * Time
-                    An observed time.
-                * At Risk
-                    The number of individuals at risk at the observed time
-                    (i.e., not failed or censored yet immediately before the
-                    time).
-                * Fail
-                    The number of failures at the observed time.
-                * Censor
-                    The number of censored events at the observed time.
-                * Survival
-                    The estimated survival probability.
-                * Std. Err.
-                    The standard error of the survival probability estimate.
-                * C.I. L
-                    Lower confidence interval bound. The actual name of this
-                    column will contain the confidence level.
-                * C.I. R
-                    Upper confidence interval bound. The actual name of this
-                    column will contain the confidence level.
+        tables : pandas.DataFrame or list of pandas.DataFrames
+            If a group is specified or there is only one group in the data, then
+            this is a pandas.DataFrame with the following columns.
+                * time
+                    The distinct true event times for that group.
+                * at risk
+                    Number of individuals at risk (i.e., entered but not yet
+                    censored or failed) immediately before each distinct event
+                    time for that group.
+                * events
+                    Number of failures/true events at each distinct event time
+                    for that group.
+                * survival
+                    The estimated survival probability at each event time.
+                * std. err.
+                    The standard error of the survival probability estimate at
+                    each event time.
+                * c.i. lower
+                    Lower confidence interval bound for the survival probability
+                    at each event time. The actual name of this column will
+                    contain the confidence level.
+                * c.i. upper
+                    Upper confidence interval bound for the survival probability
+                    at each event time. The actual name of this column will
+                    contain the confidence level.
+            If no group is specified and there is more than one group total,
+            then a list of such tables is returned (one for each group).
         """
-        columns = ("Survival", "Std. Err.",
-                   f"{self.model.conf_level:.0%} C.I. L",
-                   f"{self.model.conf_level:.0%} C.I. R")
-        survivor = self.model.predict(self.model.data.time)
-        se = self.model.se(self.model.data.time)
-        lower, upper = self.model.ci(self.model.data.time)
-        estimate_summary = pd.DataFrame(dict(zip(columns,
-                                                 (survivor, se, lower, upper))))
-        return pd.concat((self.model.data.table, estimate_summary), axis=1)
+        if group in self.model.data.groups:
+            i = np.flatnonzero(self.model.data.groups == group)[0]
+            columns = ("survival", "std. err.",
+                       f"{self.model.conf_level:.0%} c.i. lower",
+                       f"{self.model.conf_level:.0%} c.i. upper")
+            survivor = self.model.predict(self.model.data.time[i], group=group)
+            se = self.model.se(self.model.data.time[i], group=group)
+            lower, upper = self.model.ci(self.model.data.time[i], group=group)
+            bonus = pd.DataFrame(dict(zip(columns,
+                                          (survivor, se, lower, upper))))
+            return pd.concat((self.model.data.table(group=group), bonus),
+                             axis=1)
+        elif self.model.data.n_groups == 1:
+            return self.table(group=self.model.data.groups[0])
+        elif group is None:
+            return [self.table(group=g) for g in self.model.data.groups]
+        else:
+            raise ValueError(f"Not a known group label: {group}.")
 
     def __str__(self):
         """Return a string summary of the survivor function estimator."""
-        header = super(KaplanMeierSummary, self).__str__()
-        table = self.survival_table.to_string(index=False)
-        n = self.model.data.n_at_risk[0]
-        f = np.sum(self.model.data.n_fail)
-        c = np.sum(self.model.data.n_censor)
-        obs = f"{n} observations ({f} failures, {c} censored)"
-        ci_info = f"{self.model.conf_level:.0%} confidence intervals are of " \
-                  f"type '{self.model.conf_type}'."
-        return f"{header}\n\n{obs}\n\n{table}\n\n{ci_info}"
+        summary = super(KaplanMeierSummary, self).__str__()
+        for group in self.model.data.groups:
+            counts = self.model.data.counts.loc[[group]]
+            summary += f"\n\n{counts.to_string()}"
+            table = self.table(group)
+            summary += f"\n\n{table.to_string(index=False)}"
+        return summary
