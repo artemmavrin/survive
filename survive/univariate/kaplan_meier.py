@@ -53,7 +53,9 @@ class KaplanMeier(Model, Fittable, Predictor):
         Confidence level of the confidence intervals.
     """
     model_type = "Kaplan-Meier estimator"
-    data: SurvivalData
+
+    # Internal storage of the survival data
+    _data: SurvivalData
 
     # Internal versions of __init__() parameters
     _conf_type: str
@@ -85,6 +87,12 @@ class KaplanMeier(Model, Fittable, Predictor):
     def conf_level(self, conf_level):
         """Set the confidence level."""
         self._conf_level = check_float(conf_level, minimum=0., maximum=1.)
+
+    @property
+    def data(self):
+        """Survival data used to fit the estimator."""
+        self.check_fitted()
+        return self._data
 
     def __init__(self, conf_type="log-log", conf_level=0.95):
         """Initialize the Kaplan-Meier estimator.
@@ -149,17 +157,17 @@ class KaplanMeier(Model, Fittable, Predictor):
             This KaplanMeier instance.
         """
         if isinstance(time, SurvivalData):
-            self.data = time
+            self._data = time
         else:
-            self.data = SurvivalData(time=time, status=status, entry=entry,
-                                     group=group, data=data)
+            self._data = SurvivalData(time=time, status=status, entry=entry,
+                                      group=group, data=data)
 
         # Compute the Kaplan-Meier product-limit estimator at the distinct
         # failure times within each group
-        self._survival = np.empty(self.data.n_groups, dtype=object)
-        for i in range(self.data.n_groups):
-            e = self.data.n_events[i]
-            r = self.data.n_at_risk[i]
+        self._survival = np.empty(self._data.n_groups, dtype=object)
+        for i in range(self._data.n_groups):
+            e = self._data.n_events[i]
+            r = self._data.n_at_risk[i]
             self._survival[i] = np.cumprod(1. - e / r)
 
         self.fitted = True
@@ -190,17 +198,18 @@ class KaplanMeier(Model, Fittable, Predictor):
                   then this is a pandas.DataFrame with as many rows as entries
                   in `time` and one column for each group.
         """
-        if group in self.data.groups:
+        if group in self._data.groups:
             self.check_fitted()
             time = check_data_1d(time)
-            i = np.flatnonzero(self.data.groups == group)[0]
-            ind = np.searchsorted(self.data.time[i], time, side="right")
-            return np.concatenate(([1.], self._survival[i]))[ind]
-        elif self.data.n_groups == 1:
-            return self.predict(time, group=self.data.groups[0])
+            i = np.flatnonzero(self._data.groups == group)[0]
+            ind = np.searchsorted(self._data.time[i], time, side="right")
+            prob = np.concatenate(([1.], self._survival[i]))[ind]
+            return prob.item() if prob.size == 1 else prob
+        elif self._data.n_groups == 1:
+            return self.predict(time, group=self._data.groups[0])
         elif group is None:
             return pd.DataFrame({group: self.predict(time, group=group)
-                                 for group in self.data.groups})
+                                 for group in self._data.groups})
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -227,12 +236,13 @@ class KaplanMeier(Model, Fittable, Predictor):
         M. Greenwood. "The natural duration of cancer". Reports on Public Health
             and Medical Subjects. Volume 33 (1926), pp. 1--26
         """
-        ind = np.searchsorted(self.data.time[group_index], time, side="right")
-        e = self.data.n_events[group_index]
-        r = self.data.n_at_risk[group_index]
+        ind = np.searchsorted(self._data.time[group_index], time, side="right")
+        e = self._data.n_events[group_index]
+        r = self._data.n_at_risk[group_index]
         with np.errstate(divide="ignore", invalid="ignore"):
             a = np.concatenate(([0], e / r / (r - e)))
-        return np.cumsum(a)[ind]
+        greenwood = np.cumsum(a)[ind]
+        return greenwood.item() if greenwood.size == 1 else greenwood
 
     def var(self, time, group=None):
         """Estimate the variance of the estimated survival probability at the
@@ -265,18 +275,18 @@ class KaplanMeier(Model, Fittable, Predictor):
         M. Greenwood. "The natural duration of cancer". Reports on Public Health
             and Medical Subjects. Volume 33 (1926), pp. 1--26
         """
-        if group in self.data.groups:
+        if group in self._data.groups:
             self.check_fitted()
             time = check_data_1d(time)
-            i = np.flatnonzero(self.data.groups == group)[0]
+            i = np.flatnonzero(self._data.groups == group)[0]
             prob = self.predict(time, group=group)
             with np.errstate(invalid="ignore"):
                 return self._greenwood_sum(time, i) * (prob ** 2)
-        elif self.data.n_groups == 1:
-            return self.var(time, group=self.data.groups[0])
+        elif self._data.n_groups == 1:
+            return self.var(time, group=self._data.groups[0])
         elif group is None:
             return pd.DataFrame({group: self.var(time, group=group)
-                                 for group in self.data.groups})
+                                 for group in self._data.groups})
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -365,12 +375,12 @@ class KaplanMeier(Model, Fittable, Predictor):
         M. Greenwood. "The natural duration of cancer". Reports on Public Health
             and Medical Subjects. Volume 33 (1926), pp. 1--26.
         """
-        if group in self.data.groups:
+        if group in self._data.groups:
             self.check_fitted()
             time = check_data_1d(time)
 
             # Get group index
-            i = np.flatnonzero(self.data.groups == group)[0]
+            i = np.flatnonzero(self._data.groups == group)[0]
 
             # Standard normal quantile
             z = st.norm.ppf((1 - self.conf_level) / 2)
@@ -403,15 +413,15 @@ class KaplanMeier(Model, Fittable, Predictor):
 
             with np.errstate(invalid="ignore"):
                 return np.maximum(lower, 0.), np.minimum(upper, 1.)
-        elif self.data.n_groups == 1:
-            return self.ci(time, group=self.data.groups[0])
+        elif self._data.n_groups == 1:
+            return self.ci(time, group=self._data.groups[0])
         elif group is None:
-            ls = np.empty(self.data.n_groups, dtype=object)
-            us = np.empty(self.data.n_groups, dtype=object)
-            for i, g in enumerate(self.data.groups):
+            ls = np.empty(self._data.n_groups, dtype=object)
+            us = np.empty(self._data.n_groups, dtype=object)
+            for i, g in enumerate(self._data.groups):
                 ls[i], us[i] = self.ci(time, g)
-            lower = pd.DataFrame({g: l for g, l in zip(self.data.groups, ls)})
-            upper = pd.DataFrame({g: u for g, u in zip(self.data.groups, us)})
+            lower = pd.DataFrame({g: l for g, l in zip(self._data.groups, ls)})
+            upper = pd.DataFrame({g: u for g, u in zip(self._data.groups, us)})
             return lower, upper
         else:
             raise ValueError(f"Not a known group label: {group}.")
@@ -458,7 +468,7 @@ class KaplanMeier(Model, Fittable, Predictor):
         self.check_fitted()
 
         if not groups:
-            groups = self.data.groups
+            groups = self._data.groups
 
         if color is not None:
             if (len(groups) > 1 and ((not (isinstance(color, list)
@@ -477,8 +487,12 @@ class KaplanMeier(Model, Fittable, Predictor):
             ax = plt.gca()
 
         # Plot the survival curves
-        for i, group in enumerate(groups):
-            x = np.unique(self.data.data.time[self.data.data.group == group])
+        for group in groups:
+            # Get group index
+            i = np.flatnonzero(self._data.groups == group)[0]
+
+            x = np.unique(np.concatenate((self._data.time[i],
+                                          self._data.censor[i])))
             y = self.predict(x, group=group)
             label = f"{self.model_type}"
             if len(groups) > 1:
@@ -490,12 +504,12 @@ class KaplanMeier(Model, Fittable, Predictor):
             p = ax.step(x, y, **params)
 
             # Mark the censored times
-            if mark_censor and self.data.censor[i].shape[0] != 0:
+            if mark_censor and self._data.censor[i].shape[0] != 0:
                 c = p[0].get_color()
                 marker_params = dict(marker="+", color=c, zorder=3)
                 if mark_censor_kwargs is not None:
                     marker_params.update(mark_censor_kwargs)
-                xx = self.data.censor[i]
+                xx = self._data.censor[i]
                 yy = self.predict(xx, group=group)
                 ax.scatter(xx, yy, **marker_params)
 

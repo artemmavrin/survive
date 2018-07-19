@@ -133,7 +133,7 @@ class SurvivalData(object):
         if group is None:
             group = np.zeros(time.shape[0], dtype=np.int_)
         else:
-            group = check_data_1d(group, n_exact=time.shape[0])
+            group = check_data_1d(group, numeric=False, n_exact=time.shape[0])
 
         # Sort the times in increasing order, putting failures before censored
         # times in the case of ties
