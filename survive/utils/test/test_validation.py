@@ -87,6 +87,14 @@ class TestValidation(unittest.TestCase):
             with self.assertRaises(ValueError):
                 check_data_1d(x)
 
+        # A TypeError should be raised if a non-numeric array is passed
+        non_numeric = ["this", "isn't", "a", "numeric", "array"]
+        with self.assertRaises(TypeError):
+            check_data_1d(non_numeric)
+
+        # A non-numeric array should go through if numeric=False
+        check_data_1d(non_numeric, numeric=False)
+
         # Check that size constraints are enforced
         x = [1, 2, 3]
         np.testing.assert_equal(check_data_1d(x, n_min=1), x)
@@ -131,6 +139,22 @@ class TestValidation(unittest.TestCase):
         for x in ([], [[[1]], [[2]]], [[[[4]]]], np.ones((3, 4, 5))):
             with self.assertRaises(ValueError):
                 check_data_2d(x)
+
+        # A TypeError should be raised if a non-numeric array is passed
+        non_numeric = ["this", "isn't", "a", "numeric", "array"]
+        with self.assertRaises(TypeError):
+            check_data_2d(non_numeric)
+
+        # A non-numeric array should go through if numeric=False
+        check_data_2d(non_numeric, numeric=False)
+
+        # A TypeError should be raised if a non-numeric DataFrame is passed
+        non_numeric_df = pd.DataFrame([dict(a=1, b="a"), dict(a=2, b="c")])
+        with self.assertRaises(TypeError):
+            check_data_2d(non_numeric_df)
+
+        # A non-numeric DataFrame should go through if numeric=False
+        check_data_2d(non_numeric_df, numeric=False)
 
         # Check that size constraints are enforced
         x = [[1], [2], [3]]

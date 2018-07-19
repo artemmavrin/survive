@@ -4,6 +4,7 @@ import numbers
 
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_numeric_dtype
 
 
 def _check_type(obj, base, allow_none):
@@ -28,7 +29,6 @@ def _check_type(obj, base, allow_none):
     TypeError
         If `obj` is not an instance of `base`.
     """
-    # Validate `base`
     if allow_none and obj is None:
         return None
     elif isinstance(obj, base):
@@ -153,8 +153,8 @@ def check_float(num, *, positive=False, minimum=None, maximum=None,
     return num
 
 
-def check_data_1d(data, *, n_exact=None, n_min=None, n_max=None, copy=False,
-                  dtype=None, order=None):
+def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
+                  copy=False, dtype=None, order=None):
     """Preprocess and validate a one-dimensional array.
 
     Parameters
@@ -162,6 +162,8 @@ def check_data_1d(data, *, n_exact=None, n_min=None, n_max=None, copy=False,
     data : array-like
         The data array. If `data` is a scalar, it is interpreted as an array of
         shape (1,).
+    numeric : bool, optional (default: True)
+        If True, ensure that the entries in the array are of a numeric type.
     n_exact : int, optional (default: None)
         Exact number of entries expected.
     n_min : int, optional (default: None)
@@ -186,7 +188,8 @@ def check_data_1d(data, *, n_exact=None, n_min=None, n_max=None, copy=False,
     ------
     ValueError
         If the input array is empty or has more than one dimension, or if any of
-        the optional constraints on the number of entries is violated.
+        the optional constraints on the data type or number of entries is
+        violated.
     """
     # Coerce into a NumPy array
     data = np.array(data, dtype=dtype, copy=copy, order=order)
@@ -200,6 +203,11 @@ def check_data_1d(data, *, n_exact=None, n_min=None, n_max=None, copy=False,
         raise ValueError(f"Array must be at most one-dimensional.")
     elif data.size == 0:
         raise ValueError(f"Array cannot be empty.")
+
+    # Check for a numeric data type
+    numeric = check_bool(numeric)
+    if numeric and not is_numeric_dtype(data):
+        raise TypeError("Array must have a numeric data type.")
 
     # Ensure every constraint on the number of entries is met
     n = data.shape[0]
@@ -216,8 +224,9 @@ def check_data_1d(data, *, n_exact=None, n_min=None, n_max=None, copy=False,
     return data
 
 
-def check_data_2d(data, *, n_exact=None, n_min=None, n_max=None, p_exact=None,
-                  p_min=None, p_max=None, copy=False, dtype=None, order=None):
+def check_data_2d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
+                  p_exact=None, p_min=None, p_max=None, copy=False, dtype=None,
+                  order=None):
     """Preprocess and validate a two-dimensional array (i.e., a matrix).
 
     A matrix of shape (n, p) represents n observations of p features. That is,
@@ -240,6 +249,8 @@ def check_data_2d(data, *, n_exact=None, n_min=None, n_max=None, p_exact=None,
     ----------
     data : array-like
         Matrix of shape (n, p) (n=number of observations, p=number of features).
+    numeric : bool, optional (default: True)
+        If True, ensure that the entries in the array are of a numeric type.
     n_exact : int, optional (default: None)
         Exact number of observations (rows) expected.
     n_min : int, optional (default: None)
@@ -270,8 +281,8 @@ def check_data_2d(data, *, n_exact=None, n_min=None, n_max=None, p_exact=None,
     ------
     ValueError
         If the input array is empty or is has more than two dimensions, or if
-        any of the optional constraints on the number of rows and columns is
-        violated.
+        any of the optional constraints on the data type or the number of rows
+        and columns is violated.
     """
     if isinstance(data, pd.DataFrame):
         # Potentially copy the DataFrame
@@ -290,6 +301,17 @@ def check_data_2d(data, *, n_exact=None, n_min=None, n_max=None, p_exact=None,
         raise ValueError(f"Array must be at most two-dimensional.")
     elif data.size == 0:
         raise ValueError(f"Array cannot be empty.")
+
+    # Check for a numeric data type
+    numeric = check_bool(numeric)
+    if numeric:
+        if isinstance(data, np.ndarray) and not is_numeric_dtype(data):
+            raise TypeError("Array must have a numeric data type.")
+        elif isinstance(data, pd.DataFrame):
+            for name, column in data.iteritems():
+                if not is_numeric_dtype(column):
+                    raise TypeError(
+                        f"Column {name} does not have a numeric data type.")
 
     # Ensure every constraint on the number of rows and columns is met
     # n = number of observations (rows), p = number of features (columns)
