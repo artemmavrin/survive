@@ -226,7 +226,7 @@ class SurvivalData(object):
             then a list of such tables is returned (one for each group).
         """
         if group in self.groups:
-            i = np.flatnonzero(self.groups == group)[0]
+            i = (self.groups == group).argmax()
             return pd.DataFrame({"time": self.time[i],
                                  "at risk": self.n_at_risk[i],
                                  "events": self.n_events[i]})
