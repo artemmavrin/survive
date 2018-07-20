@@ -23,14 +23,13 @@ class Model(metaclass=abc.ABCMeta):
 
     Properties
     ----------
-    model_type : str
-        The name of this model type.
     random_state : numpy.random.RandomState
         This model's random number generator.
     summary : Summary
         A summary of this model.
     """
-    model_type: str
+    # The name of this model type
+    _model_type: str
 
     # Internal random number generator
     _random_state: np.random.RandomState = np.random.RandomState(None)
@@ -87,7 +86,7 @@ class Summary(object):
 
     def __str__(self):
         """Return a basic string representation of the model."""
-        return f"{repr(self.model)}\n\n{self.model.model_type}"
+        return f"{repr(self.model)}\n\n{self.model._model_type}"
 
 
 class Fittable(metaclass=abc.ABCMeta):
