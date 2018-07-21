@@ -28,12 +28,18 @@ class UnivariateSurvival(Model, Fittable, Predictor):
     _conf_types = (None,)
     _conf_type_default = None
 
-    # (Internal) __init__() parameters
+    # Storage of the survival data
+    _data: SurvivalData
+
+    # __init__() parameters
     _conf_type: str
     _conf_level: float
 
-    # (Internal) Storage of the survival data
-    _data: SurvivalData
+    @property
+    def data(self) -> SurvivalData:
+        """Survival data used to fit the estimator."""
+        self.check_fitted()
+        return self._data
 
     @property
     def conf_type(self):
@@ -43,6 +49,9 @@ class UnivariateSurvival(Model, Fittable, Predictor):
     @conf_type.setter
     def conf_type(self, conf_type):
         """Set the type of confidence interval."""
+        if self.fitted:
+            raise RuntimeError(
+                "Confidence interval type cannot be set after fitting.")
         if conf_type is None:
             self._conf_type = self._conf_type_default
         elif conf_type in self._conf_types:
@@ -58,13 +67,9 @@ class UnivariateSurvival(Model, Fittable, Predictor):
     @conf_level.setter
     def conf_level(self, conf_level):
         """Set the confidence level."""
+        if self.fitted:
+            raise RuntimeError("Confidence level cannot be set after fitting.")
         self._conf_level = check_float(conf_level, minimum=0., maximum=1.)
-
-    @property
-    def data(self) -> SurvivalData:
-        """Survival data used to fit the estimator."""
-        self.check_fitted()
-        return self._data
 
     def __init__(self, conf_type=None, conf_level=0.95):
         """Initialize the survival function estimator.
