@@ -26,12 +26,11 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
     # Types of confidence intervals available
     _conf_types = (None,)
-    _conf_type_default = None
 
     # Storage of the survival data
     _data: SurvivalData
 
-    # __init__() parameters
+    # Internal versions of __init__() parameters
     _conf_type: str
     _conf_level: float
 
@@ -50,14 +49,11 @@ class UnivariateSurvival(Model, Fittable, Predictor):
     def conf_type(self, conf_type):
         """Set the type of confidence interval."""
         if self.fitted:
-            raise RuntimeError(
-                "Confidence interval type cannot be set after fitting.")
-        if conf_type is None:
-            self._conf_type = self._conf_type_default
+            raise RuntimeError("'conf_type' cannot be set after fitting.")
         elif conf_type in self._conf_types:
             self._conf_type = conf_type
         else:
-            raise ValueError(f"Invalid value for 'conf_type': {conf_type}")
+            raise ValueError(f"Invalid value for 'conf_type': {conf_type}.")
 
     @property
     def conf_level(self):
@@ -68,23 +64,8 @@ class UnivariateSurvival(Model, Fittable, Predictor):
     def conf_level(self, conf_level):
         """Set the confidence level."""
         if self.fitted:
-            raise RuntimeError("Confidence level cannot be set after fitting.")
+            raise RuntimeError("'conf_level' cannot be set after fitting.")
         self._conf_level = check_float(conf_level, minimum=0., maximum=1.)
-
-    def __init__(self, conf_type=None, conf_level=0.95):
-        """Initialize the survival function estimator.
-
-        Parameters
-        ----------
-        conf_type : str
-            Type of confidence intervals for the survival function estimate S(t)
-            to report. Acceptable values depend on the actual estimator.
-        conf_level : float
-            Confidence level of the confidence intervals.
-        """
-        # Parameter validation is done in each parameter's setter method
-        self.conf_type = conf_type
-        self.conf_level = conf_level
 
     @abc.abstractmethod
     def fit(self, *args, **kwargs):
