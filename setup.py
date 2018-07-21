@@ -18,5 +18,6 @@ setup(
     author_email="amavrin@ucsd.edu",
     packages=sorted(find_packages(exclude=("*.test",))),
     include_package_data=True,
-    install_requires=["numpy", "scipy", "pandas", "matplotlib"]
+    install_requires=["numpy", "scipy", "pandas", "matplotlib"],
+    extras_require={"seaborn": ["seaborn"]}
 )

@@ -411,7 +411,7 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
 
     def plot(self, *groups, ci=True, ci_kwargs=None, mark_censor=True,
              mark_censor_kwargs=None, legend=True, legend_kwargs=None,
-             color=None, ax=None, **kwargs):
+             colors=None, palette=None, ax=None, **kwargs):
         """Plot the estimated survival curves.
 
         Parameters
@@ -434,15 +434,26 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
             Indicates whether to display a legend for the plot.
         legend_kwargs : dict, optional (default: None)
             Keyword parameters to pass to legend().
-        color : str or sequence, optional (default: None)
-            Colors for each group's survival curve. This can be a string if only
-            one curve is to be plotted.
+        colors : list or tuple or dict or str, optional (default: None)
+            Colors for each group's survival curve. This is ignored if `palette`
+            is provided.
+            Possible types:
+                * list or tuple
+                    Sequence of valid matplotlib colors to cycle through.
+                * dict
+                    Should be a dictionary with groups as keys and valid
+                    matplotlib colors as values.
+                * str
+                    Name of a matplotlib colormap.
+        palette : str, optional (default: None)
+            Name of a seaborn color palette. Requires seaborn to be installed.
+            Setting a color palette overrides the `colors` parameter.
         ax : matplotlib.axes.Axes, optional (default: None)
             The axes on which to draw the line. If this is not specified, the
             current axis will be used.
         **kwargs : keyword arguments
-            Additional keyword arguments to pass to the the plotting function
-            when plotting survival curves.
+            Additional keyword arguments to pass to step() when plotting
+            survival curves.
 
         Returns
         -------
@@ -451,39 +462,68 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         self.check_fitted()
 
         if not groups:
+            # Plot curves for all groups
             groups = self._data.groups
+        else:
+            # Ensure that the group names are valid
+            for group in groups:
+                if group not in self._data.groups:
+                    raise ValueError(f"Not a known group label: {group}.")
 
-        if color is not None:
-            if (len(groups) > 1 and ((not (isinstance(color, list)
-                                           or isinstance(color, tuple)))
-                                     or len(color) != len(groups))):
-                raise ValueError("When plotting several curves, parameter "
-                                 "'color' must be a list or tuple containing "
-                                 "as many colors as groups.")
-            if len(groups) == 1 and not isinstance(color, str):
-                raise ValueError("When plotting a single curve, parameter "
-                                 "'color' must be a string.")
-            color = iter(color) if len(groups) > 1 else itertools.repeat(color)
+        # Validate color palette
+        if palette is not None:
+            try:
+                import seaborn as sns
+            except ImportError:
+                raise RuntimeError("The use of the 'palette' parameter "
+                                   "requires seaborn to be installed.")
+            colors = iter(sns.color_palette(palette, n_colors=len(groups)))
+        elif isinstance(colors, list) or isinstance(colors, tuple):
+            colors = itertools.cycle(colors)
+        elif isinstance(colors, dict):
+            for group in groups:
+                if group not in colors:
+                    raise ValueError(
+                        f"Group {group} is not a key in dict 'colors'.")
+            colors_copy = colors.copy()
+            colors = (colors_copy[group] for group in groups)
+        elif isinstance(colors, str):
+            import matplotlib.pyplot as plt
+            colormap = plt.get_cmap(colors)
+            colors = iter(colormap(np.linspace(0., 1., len(groups))))
+        elif colors is None:
+            colors = itertools.repeat(None)
+        else:
+            raise ValueError(f"Invalid value for parameter 'colors': {colors}.")
 
+        # Get current axes if axes are not specified
         if ax is None:
             import matplotlib.pyplot as plt
             ax = plt.gca()
 
         # Plot the survival curves
         for group in groups:
-            # Get group index
+            # Group index
             i = (self._data.groups == group).argmax()
 
+            # Unique times in the sample
             x = np.unique(np.concatenate((self._data.time[i],
                                           self._data.censor[i])))
+
+            # Survival probabilities
             y = self.predict(x, group=group)
-            label = f"{self._model_type}"
+
+            # Parameters for the survival curve plot
+            color = next(colors)
+            curve_label = f"{self._model_type}"
             if len(groups) > 1:
-                label += f" ({group})"
-            curve_params = dict(where="post", label=label, zorder=3)
+                curve_label += f" ({group})"
+            curve_params = dict(where="post", label=curve_label, zorder=3)
             if color is not None:
-                curve_params["color"] = next(color)
+                curve_params["color"] = color
             curve_params.update(kwargs)
+
+            # Plot this group's survival curve
             p = ax.step(x, y, **curve_params)
 
             # Mark the censored times
@@ -497,14 +537,14 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
                 ax.scatter(xx, yy, **marker_params)
 
             # Plot the confidence bands
-            if ci:
+            if ci and self._conf_type is not None:
                 lower, upper = self.ci(x, group=group)
-                label = f"{self.conf_level:.0%} {self.conf_type} C.I."
+                ci_label = f"{self.conf_level:.0%} {self.conf_type} C.I."
                 if len(groups) > 1:
-                    label += f" ({group})"
+                    ci_label += f" ({group})"
                 c = p[0].get_color()
                 alpha = 0.4 * curve_params.get("alpha", 1.)
-                ci_params = dict(color=c, alpha=alpha, label=label,
+                ci_params = dict(color=c, alpha=alpha, label=ci_label,
                                  step="post", zorder=2)
                 if ci_kwargs is not None:
                     ci_params.update(ci_kwargs)
