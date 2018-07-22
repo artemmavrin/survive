@@ -25,19 +25,20 @@ def leukemia():
     data : pandas.DataFrame
         DataFrame of the leukemia data.
         Column descriptions:
-            * Time
+            * time
                 The observed leukemia remission times.
-            * Event
+            * status
                 Right-censoring indicators (0=censored, 1=event).
-            * Group
-                Group indicators (0=control, 1=treatment).
+            * group (categorical)
+                Group labels (control or treatment).
 
     References
     ----------
         * D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall,
           London (1984), pp. ix+201.
     """
-    return pd.read_csv(_full_filename("leukemia.csv"), header=0)
+    return pd.read_csv(_full_filename("leukemia.csv"), header=0,
+                       dtype=dict(time="int", status="int", group="category"))
 
 
 def channing():
@@ -61,17 +62,17 @@ def channing():
     data : pandas.DataFrame
         DataFrame of the Channing House data.
         Column descriptions:
-            * Sex
-                Sex of each resident ("Male" or "Female").
-            * Entry
+            * sex (categorical)
+                Sex of each resident (male or female).
+            * entry (int)
                 The resident's age (in months) on entry to the centre.
-            * Exit
+            * exit (int)
                 The age (in months) of the resident on death, leaving the centre
                 or July 1, 1975 whichever event occurred first.
-            * Time
+            * time (int)
                 The length of time (in months) that the resident spent at
                 Channing House.
-            * Event
+            * status (int)
                 Right-censoring indicator. 1 indicates that the resident died at
                 Channing House, 0 indicates that they left the house prior to
                 July 1, 1975 or that they were still alive and living in the
@@ -86,4 +87,6 @@ def channing():
           R package version 1.3-20 (2017).
           CRAN: https://cran.r-project.org/web/packages/boot/index.html
     """
-    return pd.read_csv(_full_filename("channing.csv"), header=0)
+    return pd.read_csv(_full_filename("channing.csv"), header=0,
+                       dtype=dict(sex="category", entry="int", exit="int",
+                                  time="int", status="int"))
