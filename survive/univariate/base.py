@@ -74,98 +74,89 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
     @abc.abstractmethod
     def _predict(self, time, index):
-        """Get the univariate survival function estimates for a single group.
+        """Survival function estimates for a single group.
 
         Parameters
         ----------
-        time : array-like
-            One-dimensional array of non-negative times.
+        time : float or array-like
+            Times at which to estimate the survival function.
         index : int
-            Index of the group whose survival function estimates should be
-            returned.
+            Group index.
 
         Returns
         -------
         prob : float or numpy.ndarray
-            The survival function estimate. This is either a float or a
-            one-dimensional array depending on whether the parameter `time` is a
-            scalar or a one-dimensional array with at least two elements.
+            The survival function estimates. This is either a float or a
+            one-dimensional array depending on the shape of ``time``.
         """
         pass
 
     @abc.abstractmethod
     def _var(self, time, index):
-        """Estimate the variance of the estimated survival probability at the
-        given times for a single group.
+        """Survival function variance estimates for a single group.
 
         Parameters
         ----------
-        time : array-like
-            One-dimensional array of non-negative times.
+        time : float or array-like
+            Times at which to estimate the survival function variance.
         index : int
-            Index of the group whose survival function variance estimates should
-            be returned.
+            Group index.
 
         Returns
         -------
         var : float or numpy.ndarray
-            The survival function variance estimate. This is either a float or a
-            one-dimensional array depending on whether the parameter `time` is a
-            scalar or a one-dimensional array with at least two elements.
+            The survival function variance estimates. This is either a float or
+            a one-dimensional array depending on the shape of ``time``.
         """
         pass
 
     @abc.abstractmethod
     def _ci(self, time, index):
-        """Confidence intervals for the estimated survival probability at the
-        given times for a single group.
+        """Survival function confidence intervals for a single group.
 
         Parameters
         ----------
-        time : array-like
-            One-dimensional array of non-negative times.
+        time : float or array-like
+            Times at which to compute the confidence intervals.
         index : int
-            Index of the group whose survival function variance estimates should
-            be returned.
+            Group index.
 
         Returns
         -------
         lower : float or numpy.ndarray
+            Confidence interval lower bounds. This is either a float or a
+            one-dimensional array depending on the shape of ``time``.
         upper : float or numpy.ndarray
-            Confidence interval upper and lower bounds. These are either floats
-            or one-dimensional arrays depending on whether the parameter `time`
-            is a scalar or a one-dimensional array with at least two elements.
+            Confidence interval upper bounds. Same shape as ``lower``.
         """
         pass
 
     @abc.abstractmethod
     def _quantile(self, prob, index):
-        """Estimates time-to-event distribution quantiles for a single group.
+        """Estimate the time-to-event distribution quantiles for a single group.
 
         Parameters
         ----------
-        prob : array-like
-            One-dimensional array of probability levels.
+        prob : float or array-like
+            Probability levels of the desired quantiles.
         index : int
-            Index of the group whose survival function variance estimates should
-            be returned.
+            Group index.
 
         Returns
         -------
-        quantiles : float or numpy.ndarray
+        quantile : float or numpy.ndarray
             The quantile estimates. This is either a float or a one-dimensional
-            array depending on whether the parameter `time` is a scalar or a
-            one-dimensional array with at least two elements.
+            array depending on the shape of ``time``.
         """
         pass
 
     def predict(self, time, group=None):
-        """Get the univariate survival function estimates.
+        """Survival function estimates.
 
         Parameters
         ----------
-        time : array-like
-            One-dimensional array of non-negative times.
+        time : float or array-like
+            Times at which to estimate the survival function.
         group : group label or None, optional (default: None)
             Specify the group whose survival function estimates should be
             returned. Ignored if there is only one group. If not specified,
@@ -174,15 +165,14 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         Returns
         -------
         prob : float or numpy.ndarray or pandas.DataFrame
-            The survival function estimate.
+            The survival function estimates.
             Possible shapes:
-                * If there is only one group or if a group is specified, then
-                  this is either a float or a one-dimensional array depending on
-                  whether the parameter `time` is a scalar or a one-dimensional
-                  array with at least two elements, respectively.
+                * If there is only one group in the model or if a group is
+                  specified, then this is either a float or a one-dimensional
+                  array depending on the shape of ``time``.
                 * If the model has more than one group and no group is
                   specified, then this is a pandas.DataFrame with as many rows
-                  as entries in `time` and one column for each group.
+                  as entries in ``time`` and one column for each group.
         """
         self.check_fitted()
         time = check_data_1d(time)
@@ -200,12 +190,12 @@ class UnivariateSurvival(Model, Fittable, Predictor):
             raise ValueError(f"Not a known group label: {group}.")
 
     def var(self, time, group=None):
-        """Estimate the variance of the survival function estimates.
+        """Survival function variance estimates.
 
         Parameters
         ----------
-        time : array-like
-            One-dimensional array of non-negative times.
+        time : float or array-like
+            Times at which to estimate the survival function variance.
         group : group label or None, optional (default: None)
             Specify the group whose variance estimates should be returned.
             Ignored if there is only one group. If not specified, variance
@@ -214,15 +204,14 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         Returns
         -------
         var : float or numpy.ndarray or pandas.DataFrame
-            The survival function variance estimate.
+            The survival function variance estimates.
             Possible shapes:
-                * If there is only one group or if a group is specified, then
-                  this is either a float or a one-dimensional array depending on
-                  whether the parameter `time` is a scalar or a one-dimensional
-                  array with at least two elements, respectively.
+                * If there is only one group in the model or if a group is
+                  specified, then this is either a float or a one-dimensional
+                  array depending on the shape of ``time``.
                 * If the model has more than one group and no group is
                   specified, then this is a pandas.DataFrame with as many rows
-                  as entries in `time` and one column for each group.
+                  as entries in ``time`` and one column for each group.
         """
         self.check_fitted()
         time = check_data_1d(time)
@@ -240,12 +229,12 @@ class UnivariateSurvival(Model, Fittable, Predictor):
             raise ValueError(f"Not a known group label: {group}.")
 
     def se(self, time, group=None):
-        """Estimate the standard error of the survival function estimates.
+        """Survival function standard error estimates.
 
         Parameters
         ----------
-        time : array-like
-            One-dimensional array of non-negative times.
+        time : float or array-like
+            Times at which to estimate the survival function standard error.
         group : group label or None, optional (default: None)
             Specify the group whose standard error estimates should be returned.
             Ignored if there is only one group. If not specified, standard error
@@ -253,16 +242,16 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        std : float or numpy.ndarray or pandas.DataFrame
-            The standard error estimates.
+        se : float or numpy.ndarray or pandas.DataFrame
+            The survival function standard error estimates.
             Possible shapes:
-                * If there is only one group or if a group is specified, then
-                  this is either a float or a one-dimensional array depending on
-                  whether the parameter `time` is a scalar or a one-dimensional
-                  array with at least two elements, respectively.
-                * If there is more than one group and no group is specified,
-                  then this is a pandas.DataFrame with as many rows as entries
-                  in `time` and one column for each group."""
+                * If there is only one group in the model or if a group is
+                  specified, then this is either a float or a one-dimensional
+                  array depending on the shape of ``time``.
+                * If the model has more than one group and no group is
+                  specified, then this is a pandas.DataFrame with as many rows
+                  as entries in ``time`` and one column for each group.
+        """
         return np.sqrt(self.var(time, group=group))
 
     def ci(self, time, group=None):
@@ -271,7 +260,7 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         Parameters
         ----------
         time : array-like, one-dimensional
-            One-dimensional array of non-negative times.
+            Times at which to compute the confidence intervals.
         group : group label or None, optional (default: None)
             Specify the group whose confidence intervals should be returned.
             Ignored if there is only one group. If not specified, confidence
@@ -280,17 +269,16 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         Returns
         -------
         lower : float or one-dimensional numpy.ndarray or pandas.DataFrame
-        upper : float or one-dimensional numpy.ndarray or pandas.DataFrame
-            Lower and upper confidence interval bounds.
+            Confidence interval lower bounds.
             Possible shapes:
-                * If there is only one group or if a group is specified, then
-                  these are either floats or one-dimensional arrays depending
-                  on whether the parameter `time` is a scalar or a
-                  one-dimensional array with at least two elements,
-                  respectively.
-                * If there is more than one group and no group is specified,
-                  then these are pandas.DataFrames with as many rows as entries
-                  in `time` and one column for each group.
+                * If there is only one group in the model or if a group is
+                  specified, then this is either a float or a one-dimensional
+                  array depending on the shape of ``time``.
+                * If the model has more than one group and no group is
+                  specified, then this is a pandas.DataFrame with as many rows
+                  as entries in ``time`` and one column for each group.
+        upper : float or one-dimensional numpy.ndarray or pandas.DataFrame
+            Confidence interval lower bounds. Same shape as ``lower``.
         """
         self.check_fitted()
         time = check_data_1d(time)
@@ -348,16 +336,14 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         Returns
         -------
         quantiles : float or numpy.ndarray or pandas.DataFrame
-            The quantiles.
+            The quantile estimates.
             Possible shapes:
-                * If there is only one group or if a group is specified, then
-                  these are either floats or one-dimensional arrays depending
-                  on whether the parameter `time` is a scalar or a
-                  one-dimensional array with at least two elements,
-                  respectively.
-                * If there is more than one group and no group is specified,
-                  then these are pandas.DataFrames with as many rows as entries
-                  in `prob` and one column for each group.
+                * If there is only one group in the model or if a group is
+                  specified, then this is either a float or a one-dimensional
+                  array depending on the shape of ``time``.
+                * If the model has more than one group and no group is
+                  specified, then this is a pandas.DataFrame with as many rows
+                  as entries in ``time`` and one column for each group.
             Entries for probability levels for which the quantile estimate is
             not defined are nan (not a number).
 
@@ -465,70 +451,19 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         pass
 
     def _predict(self, time, index):
-        """Get the univariate survival function estimates for a single group.
-
-        Parameters
-        ----------
-        time : array-like
-            One-dimensional array of non-negative times.
-        index : int
-            Index of the group whose survival function estimates should be
-            returned.
-
-        Returns
-        -------
-        prob : float or numpy.ndarray
-            The survival function estimate. This is either a float or a
-            one-dimensional array depending on whether the parameter `time` is a
-            scalar or a one-dimensional array with at least two elements.
-        """
+        """See superclass docstring."""
         ind = np.searchsorted(self._data.time[index], time, side="right")
         prob = np.concatenate(([1.], self._survival[index]))[ind]
         return prob.item() if prob.size == 1 else prob
 
     def _var(self, time, index):
-        """Estimate the variance of the estimated survival probability at the
-        given times for a single group.
-
-        Parameters
-        ----------
-        time : array-like
-            One-dimensional array of non-negative times.
-        index : int
-            Index of the group whose survival function variance estimates should
-            be returned.
-
-        Returns
-        -------
-        var : float or numpy.ndarray
-            The survival function variance estimate. This is either a float or a
-            one-dimensional array depending on whether the parameter `time` is a
-            scalar or a one-dimensional array with at least two elements.
-        """
+        """See superclass docstring."""
         ind = np.searchsorted(self._data.time[index], time, side="right")
         var = np.concatenate(([0.], self._survival_var[index]))[ind]
         return var.item() if var.size == 1 else var
 
     def _ci(self, time, index):
-        """Confidence intervals for the estimated survival probability at the
-        given times for a single group.
-
-        Parameters
-        ----------
-        time : array-like
-            One-dimensional array of non-negative times.
-        index : int
-            Index of the group whose survival function variance estimates should
-            be returned.
-
-        Returns
-        -------
-        lower : float or numpy.ndarray
-        upper : float or numpy.ndarray
-            Confidence interval upper and lower bounds. These are either floats
-            or one-dimensional arrays depending on whether the parameter `time`
-            is a scalar or a one-dimensional array with at least two elements.
-        """
+        """See superclass docstring."""
         ind = np.searchsorted(self._data.time[index], time, side="right")
         lower = np.concatenate(([1.], self._survival_ci_lower[index]))[ind]
         upper = np.concatenate(([1.], self._survival_ci_upper[index]))[ind]
@@ -536,23 +471,7 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
                 upper.item() if upper.size == 1 else upper)
 
     def _quantile(self, prob, index):
-        """Estimates time-to-event distribution quantiles for a single group.
-
-        Parameters
-        ----------
-        prob : array-like
-            One-dimensional array of probability levels.
-        index : int
-            Index of the group whose survival function variance estimates should
-            be returned.
-
-        Returns
-        -------
-        quantiles : float or numpy.ndarray
-            The quantile estimates. This is either a float or a one-dimensional
-            array depending on whether the parameter `time` is a scalar or a
-            one-dimensional array with at least two elements.
-        """
+        """See superclass docstring."""
         cdf = np.concatenate(([0.], 1 - self._survival[index]))
         ind1 = np.searchsorted(cdf - self._quantile_tol, prob)
         ind2 = np.searchsorted(cdf + self._quantile_tol, prob)
