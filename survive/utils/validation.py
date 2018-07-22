@@ -154,7 +154,7 @@ def check_float(num, *, positive=False, minimum=None, maximum=None,
 
 
 def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
-                  copy=False, dtype=None, order=None):
+                  keep_pandas=True, copy=False, dtype=None, order=None):
     """Preprocess and validate a one-dimensional array.
 
     Parameters
@@ -170,6 +170,9 @@ def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
         Minimum number of entries expected.
     n_max : int, optional (default: None)
         Maximum number of entries expected.
+    keep_pandas : bool, optional (default: True)
+        If True, keep pandas.Series objects as pandas.Series instead of
+        converting them to NumPy arrays.
     copy : bool, optional (default: False)
         If True, the array will be copied. If False, the array might be copied
         depending on the behavior of numpy.array().
@@ -191,7 +194,8 @@ def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
         the optional constraints on the data type or number of entries is
         violated.
     """
-    if isinstance(data, pd.Series):
+    keep_pandas = check_bool(keep_pandas)
+    if keep_pandas and isinstance(data, pd.Series):
         # Potentially copy the Series
         data = pd.Series(data, dtype=dtype, copy=copy)
     else:
@@ -229,8 +233,8 @@ def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
 
 
 def check_data_2d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
-                  p_exact=None, p_min=None, p_max=None, copy=False, dtype=None,
-                  order=None):
+                  p_exact=None, p_min=None, p_max=None, keep_pandas=True,
+                  copy=False, dtype=None, order=None):
     """Preprocess and validate a two-dimensional array (i.e., a matrix).
 
     A matrix of shape (n, p) represents n observations of p features. That is,
@@ -267,6 +271,9 @@ def check_data_2d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
         Minimum number of features (columns) expected.
     p_max : int, optional (default: None)
         Maximum number of features (columns) expected.
+    keep_pandas : bool, optional (default: True)
+        If True, keep pandas.DataFrame objects as pandas.DataFrame instead of
+        converting them to NumPy arrays.
     copy : bool, optional (default: False)
         If True, the array will be copied. If False, the array might be copied
         depending on the behavior of numpy.array().
@@ -288,7 +295,8 @@ def check_data_2d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
         any of the optional constraints on the data type or the number of rows
         and columns is violated.
     """
-    if isinstance(data, pd.DataFrame):
+    keep_pandas = check_bool(keep_pandas)
+    if keep_pandas and isinstance(data, pd.DataFrame):
         # Potentially copy the DataFrame
         data = pd.DataFrame(data, index=data.index, columns=data.columns,
                             dtype=dtype, copy=copy)

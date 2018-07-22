@@ -75,11 +75,16 @@ class TestValidation(unittest.TestCase):
             self.assertIsInstance(y, np.ndarray)
             self.assertEqual(y.ndim, 1)
 
-        # pandas.Series
-        x = pd.Series([1., 2., 3.])
-        y = check_data_1d(x)
+        # Check pandas.Series with keep_pandas=True
+        series = pd.Series([1., 2., 3.])
+        y = check_data_1d(series)
         self.assertIsInstance(y, pd.Series)
-        pd.testing.assert_series_equal(y, x)
+        pd.testing.assert_series_equal(y, series)
+
+        # Check pandas.Series with keep_pandas=False
+        y = check_data_1d(series, keep_pandas=False)
+        self.assertIsInstance(y, np.ndarray)
+        np.testing.assert_equal(y, series)
 
         # Scalars should be coerced into 1D arrays
         x = 0
@@ -112,11 +117,16 @@ class TestValidation(unittest.TestCase):
 
     def test_check_data_2d(self):
         """Sanity checks for check_data_2d()."""
-        # Check DataFrames
-        x = pd.DataFrame([[0, 1, 2], [3, 4, 5]])
-        y = check_data_2d(x)
+        # Check pandas.DataFrames with keep_pandas=True
+        df = pd.DataFrame([[0, 1, 2], [3, 4, 5]])
+        y = check_data_2d(df)
         self.assertIsInstance(y, pd.DataFrame)
-        pd.testing.assert_frame_equal(y, x)
+        pd.testing.assert_frame_equal(y, df)
+
+        # Check pandas.DataFrames with keep_pandas=False
+        y = check_data_2d(df, keep_pandas=False)
+        self.assertIsInstance(y, np.ndarray)
+        np.testing.assert_equal(y, df)
 
         # Two-dimensional arrays
         for x in ([[0]], [[0], [1]], [[0, 1]], [[0, 1], [2, 3]]):
