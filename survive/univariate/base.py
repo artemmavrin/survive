@@ -709,7 +709,7 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
                                  step="post", zorder=2)
                 if ci_kwargs is not None:
                     ci_params.update(ci_kwargs)
-                ind = (~np.isnan(lower)) * (~np.isnan(upper))
+                ind = (~np.isnan(lower)) & (~np.isnan(upper))
                 ax.fill_between(x[ind], lower[ind], upper[ind], **ci_params)
 
         # Configure axes

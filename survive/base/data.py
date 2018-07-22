@@ -187,7 +187,7 @@ class SurvivalData(object):
             self.n_at_risk[i] = np.empty(shape=k, dtype=np.int_)
             for j in range(k):
                 t = self.time[i][j]
-                self.n_at_risk[i][j] = np.sum((entry_g < t) * (t <= time_g))
+                self.n_at_risk[i][j] = np.sum((entry_g < t) & (t <= time_g))
 
         # Put together the counts DataFrame
         columns = ("observations", "events", "censored")
