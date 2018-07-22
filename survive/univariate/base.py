@@ -425,7 +425,6 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         """Get the descriptive statistics table as a string."""
         return self.describe().to_string(index=(self.data.n_groups > 1))
 
-    @property
     def summary(self):
         """Get a summary of this survival function estimator.
 
@@ -675,7 +674,7 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
 
             # Parameters for the survival curve plot
             color = next(colors)
-            curve_label = f"{self._model_type}"
+            curve_label = f"{self.model_type}"
             if len(groups) > 1:
                 curve_label += f" ({group})"
             curve_params = dict(where="post", label=curve_label, zorder=3)
@@ -804,10 +803,11 @@ class UnivariateSurvivalSummary(Summary):
 
     def __str__(self):
         """Return a string summary of the survivor function estimator."""
+        describe = self.model.describe()
         summary = super(UnivariateSurvivalSummary, self).__str__()
         for group in self.model.data.groups:
-            describe = self.model.describe().loc[[group]]
-            summary += f"\n\n{describe.to_string()}"
-            table = self.table(group)
-            summary += f"\n\n{table.to_string(index=False)}"
+            if self.model.data.n_groups > 1:
+                summary += f"\n\n{group}"
+            summary += f"\n\n{describe.loc[[group]].to_string(index=False)}"
+            summary += f"\n\n{self.table(group).to_string(index=False)}"
         return summary

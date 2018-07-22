@@ -90,8 +90,8 @@ class KaplanMeier(NonparametricUnivariateSurvival):
           Scandinavian Journal of Statistics. Volume 5, Number 3 (1978),
           pp. 141--150. JSTOR: http://www.jstor.org/stable/4615704
     """
+    model_type = "Kaplan-Meier estimator"
 
-    _model_type = "Kaplan-Meier estimator"
     _conf_types = ("linear", "log", "log-log", "logit", "arcsin")
 
     # Types of variance estimators
