@@ -73,14 +73,14 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         pass
 
     @abc.abstractmethod
-    def _predict(self, *, t, i):
+    def _predict(self, time, index):
         """Get the univariate survival function estimates for a single group.
 
         Parameters
         ----------
-        t : array-like
+        time : array-like
             One-dimensional array of non-negative times.
-        i : int
+        index : int
             Index of the group whose survival function estimates should be
             returned.
 
@@ -90,6 +90,72 @@ class UnivariateSurvival(Model, Fittable, Predictor):
             The survival function estimate. This is either a float or a
             one-dimensional array depending on whether the parameter `time` is a
             scalar or a one-dimensional array with at least two elements.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _var(self, time, index):
+        """Estimate the variance of the estimated survival probability at the
+        given times for a single group.
+
+        Parameters
+        ----------
+        time : array-like
+            One-dimensional array of non-negative times.
+        index : int
+            Index of the group whose survival function variance estimates should
+            be returned.
+
+        Returns
+        -------
+        var : float or numpy.ndarray
+            The survival function variance estimate. This is either a float or a
+            one-dimensional array depending on whether the parameter `time` is a
+            scalar or a one-dimensional array with at least two elements.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _ci(self, time, index):
+        """Confidence intervals for the estimated survival probability at the
+        given times for a single group.
+
+        Parameters
+        ----------
+        time : array-like
+            One-dimensional array of non-negative times.
+        index : int
+            Index of the group whose survival function variance estimates should
+            be returned.
+
+        Returns
+        -------
+        lower : float or numpy.ndarray
+        upper : float or numpy.ndarray
+            Confidence interval upper and lower bounds. These are either floats
+            or one-dimensional arrays depending on whether the parameter `time`
+            is a scalar or a one-dimensional array with at least two elements.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _quantile(self, prob, index):
+        """Estimates time-to-event distribution quantiles for a single group.
+
+        Parameters
+        ----------
+        prob : array-like
+            One-dimensional array of probability levels.
+        index : int
+            Index of the group whose survival function variance estimates should
+            be returned.
+
+        Returns
+        -------
+        quantiles : float or numpy.ndarray
+            The quantile estimates. This is either a float or a one-dimensional
+            array depending on whether the parameter `time` is a scalar or a
+            one-dimensional array with at least two elements.
         """
         pass
 
@@ -122,38 +188,16 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         time = check_data_1d(time)
 
         if group in self._data.groups:
-            i = (self._data.groups == group).argmax()
-            return self._predict(t=time, i=i)
+            index = (self._data.groups == group).argmax()
+            return self._predict(time, index)
         elif self._data.n_groups == 1:
-            return self._predict(t=time, i=0)
+            return self._predict(time, 0)
         elif group is None:
-            return pd.DataFrame({g: self._predict(t=time, i=i)
-                                 for i, g in enumerate(self._data.groups)},
-                                index=time)
+            prob = {group: self._predict(time, index)
+                    for index, group in enumerate(self._data.groups)}
+            return pd.DataFrame(prob, index=time).rename_axis("time")
         else:
             raise ValueError(f"Not a known group label: {group}.")
-
-    @abc.abstractmethod
-    def _var(self, *, t, i):
-        """Estimate the variance of the estimated survival probability at the
-        given times for a single group.
-
-        Parameters
-        ----------
-        t : array-like
-            One-dimensional array of non-negative times.
-        i : int
-            Index of the group whose survival function variance estimates should
-            be returned.
-
-        Returns
-        -------
-        var : float or numpy.ndarray
-            The survival function variance estimate. This is either a float or a
-            one-dimensional array depending on whether the parameter `time` is a
-            scalar or a one-dimensional array with at least two elements.
-        """
-        pass
 
     def var(self, time, group=None):
         """Estimate the variance of the survival function estimates.
@@ -184,14 +228,14 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         time = check_data_1d(time)
 
         if group in self._data.groups:
-            i = (self._data.groups == group).argmax()
-            return self._var(t=time, i=i)
+            index = (self._data.groups == group).argmax()
+            return self._var(time, index)
         elif self._data.n_groups == 1:
-            return self._var(t=time, i=0)
+            return self._var(time, 0)
         elif group is None:
-            return pd.DataFrame({g: self._var(t=time, i=i)
-                                 for i, g in enumerate(self._data.groups)},
-                                index=time)
+            var = {group: self._var(time, index)
+                   for index, group in enumerate(self._data.groups)}
+            return pd.DataFrame(var, index=time).rename_axis("time")
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -220,29 +264,6 @@ class UnivariateSurvival(Model, Fittable, Predictor):
                   then this is a pandas.DataFrame with as many rows as entries
                   in `time` and one column for each group."""
         return np.sqrt(self.var(time, group=group))
-
-    @abc.abstractmethod
-    def _ci(self, *, t, i):
-        """Confidence intervals for the estimated survival probability at the
-        given times for a single group.
-
-        Parameters
-        ----------
-        t : array-like
-            One-dimensional array of non-negative times.
-        i : int
-            Index of the group whose survival function variance estimates should
-            be returned.
-
-        Returns
-        -------
-        lower : float or numpy.ndarray
-        upper : float or numpy.ndarray
-            Confidence interval upper and lower bounds. These are either floats
-            or one-dimensional arrays depending on whether the parameter `time`
-            is a scalar or a one-dimensional array with at least two elements.
-        """
-        pass
 
     def ci(self, time, group=None):
         """Confidence intervals for the survival function estimate.
@@ -275,43 +296,24 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         time = check_data_1d(time)
 
         if group in self._data.groups:
-            i = (self._data.groups == group).argmax()
-            return self._ci(t=time, i=i)
+            index = (self._data.groups == group).argmax()
+            return self._ci(time, index)
         elif self._data.n_groups == 1:
-            return self._ci(t=time, i=0)
+            return self._ci(time, 0)
         elif group is None:
-            ls = np.empty(self._data.n_groups, dtype=object)
-            us = np.empty(self._data.n_groups, dtype=object)
-            for i, g in enumerate(self._data.groups):
-                ls[i], us[i] = self._ci(t=time, i=i)
-            lower = pd.DataFrame({g: l for g, l in zip(self._data.groups, ls)},
-                                 index=time)
-            upper = pd.DataFrame({g: u for g, u in zip(self._data.groups, us)},
-                                 index=time)
+            lowers = np.empty(self._data.n_groups, dtype=object)
+            uppers = np.empty(self._data.n_groups, dtype=object)
+            for index in range(self._data.n_groups):
+                lowers[index], uppers[index] = self._ci(time, index)
+            lower = pd.DataFrame({group: lower for group, lower
+                                  in zip(self._data.groups, lowers)},
+                                 index=time).rename_axis("time")
+            upper = pd.DataFrame({group: upper for group, upper
+                                  in zip(self._data.groups, uppers)},
+                                 index=time).rename_axis("time")
             return lower, upper
         else:
             raise ValueError(f"Not a known group label: {group}.")
-
-    @abc.abstractmethod
-    def _quantile(self, *, p, i):
-        """Estimates time-to-event distribution quantiles for a single group.
-
-        Parameters
-        ----------
-        p : array-like
-            One-dimensional array of probability levels.
-        i : int
-            Index of the group whose survival function variance estimates should
-            be returned.
-
-        Returns
-        -------
-        quantiles : float or numpy.ndarray
-            The quantile estimates. This is either a float or a one-dimensional
-            array depending on whether the parameter `time` is a scalar or a
-            one-dimensional array with at least two elements.
-        """
-        pass
 
     def quantile(self, prob, group=None):
         """Quantile estimates for the time-to-event distribution.
@@ -369,18 +371,18 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         # Validate parameters
         prob = check_data_1d(prob)
         if not np.all((prob >= 0) * (prob <= 1)):
-            raise ValueError(
-                "Probability levels must be between zero and one.")
+            raise ValueError("Probability levels must be between zero and one.")
 
         if group in self._data.groups:
-            i = (self._data.groups == group).argmax()
-            return self._quantile(p=prob, i=i)
+            index = (self._data.groups == group).argmax()
+            return self._quantile(prob, index)
         elif self._data.n_groups == 1:
-            return self._quantile(p=prob, i=0)
+            return self._quantile(prob, 0)
         elif group is None:
-            return pd.DataFrame({g: self._quantile(p=prob, i=i)
-                                 for i, g in enumerate(self._data.groups)},
-                                index=prob)
+            return pd.DataFrame({group: self._quantile(prob, index)
+                                 for index, group
+                                 in enumerate(self._data.groups)},
+                                index=prob).rename_axis("prob.")
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -462,14 +464,14 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         """Fit the nonparametric univariate survival function estimator."""
         pass
 
-    def _predict(self, *, t, i):
+    def _predict(self, time, index):
         """Get the univariate survival function estimates for a single group.
 
         Parameters
         ----------
-        t : array-like
+        time : array-like
             One-dimensional array of non-negative times.
-        i : int
+        index : int
             Index of the group whose survival function estimates should be
             returned.
 
@@ -480,19 +482,19 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
             one-dimensional array depending on whether the parameter `time` is a
             scalar or a one-dimensional array with at least two elements.
         """
-        ind = np.searchsorted(self._data.time[i], t, side="right")
-        prob = np.concatenate(([1.], self._survival[i]))[ind]
+        ind = np.searchsorted(self._data.time[index], time, side="right")
+        prob = np.concatenate(([1.], self._survival[index]))[ind]
         return prob.item() if prob.size == 1 else prob
 
-    def _var(self, *, t, i):
+    def _var(self, time, index):
         """Estimate the variance of the estimated survival probability at the
         given times for a single group.
 
         Parameters
         ----------
-        t : array-like
+        time : array-like
             One-dimensional array of non-negative times.
-        i : int
+        index : int
             Index of the group whose survival function variance estimates should
             be returned.
 
@@ -503,19 +505,19 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
             one-dimensional array depending on whether the parameter `time` is a
             scalar or a one-dimensional array with at least two elements.
         """
-        ind = np.searchsorted(self._data.time[i], t, side="right")
-        var = np.concatenate(([0.], self._survival_var[i]))[ind]
+        ind = np.searchsorted(self._data.time[index], time, side="right")
+        var = np.concatenate(([0.], self._survival_var[index]))[ind]
         return var.item() if var.size == 1 else var
 
-    def _ci(self, *, t, i):
+    def _ci(self, time, index):
         """Confidence intervals for the estimated survival probability at the
         given times for a single group.
 
         Parameters
         ----------
-        t : array-like
+        time : array-like
             One-dimensional array of non-negative times.
-        i : int
+        index : int
             Index of the group whose survival function variance estimates should
             be returned.
 
@@ -527,20 +529,20 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
             or one-dimensional arrays depending on whether the parameter `time`
             is a scalar or a one-dimensional array with at least two elements.
         """
-        ind = np.searchsorted(self._data.time[i], t, side="right")
-        lower = np.concatenate(([1.], self._survival_ci_lower[i]))[ind]
-        upper = np.concatenate(([1.], self._survival_ci_upper[i]))[ind]
+        ind = np.searchsorted(self._data.time[index], time, side="right")
+        lower = np.concatenate(([1.], self._survival_ci_lower[index]))[ind]
+        upper = np.concatenate(([1.], self._survival_ci_upper[index]))[ind]
         return (lower.item() if lower.size == 1 else lower,
                 upper.item() if upper.size == 1 else upper)
 
-    def _quantile(self, *, p, i):
+    def _quantile(self, prob, index):
         """Estimates time-to-event distribution quantiles for a single group.
 
         Parameters
         ----------
-        p : array-like
+        prob : array-like
             One-dimensional array of probability levels.
-        i : int
+        index : int
             Index of the group whose survival function variance estimates should
             be returned.
 
@@ -551,20 +553,20 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
             array depending on whether the parameter `time` is a scalar or a
             one-dimensional array with at least two elements.
         """
-        cdf = np.concatenate(([0.], 1 - self._survival[i]))
-        ind1 = np.searchsorted(cdf - self._quantile_tol, p)
-        ind2 = np.searchsorted(cdf + self._quantile_tol, p)
-        if (self.data.censor[i].shape[0] > 0
-                and self.data.censor[i][-1] > self.data.time[i][-1]):
-            last = self.data.censor[i][-1]
+        cdf = np.concatenate(([0.], 1 - self._survival[index]))
+        ind1 = np.searchsorted(cdf - self._quantile_tol, prob)
+        ind2 = np.searchsorted(cdf + self._quantile_tol, prob)
+        if (self.data.censor[index].shape[0] > 0
+                and self.data.censor[index][-1] > self.data.time[index][-1]):
+            last = self.data.censor[index][-1]
         else:
-            last = self.data.time[i][-1]
-        qs = np.concatenate(([0.], self.data.time[i], [last]))
+            last = self.data.time[index][-1]
+        qs = np.concatenate(([0.], self.data.time[index], [last]))
         quantiles = 0.5 * (qs[ind1] + qs[ind2])
 
         # Special cases
-        quantiles[p < self._quantile_tol] = np.min(self.data.data.entry)
-        quantiles[p > cdf[-1] + self._quantile_tol] = np.nan
+        quantiles[prob < self._quantile_tol] = np.min(self.data.data.entry)
+        quantiles[prob > cdf[-1] + self._quantile_tol] = np.nan
 
         return quantiles.item() if quantiles.size == 1 else quantiles
 
