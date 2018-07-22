@@ -75,6 +75,12 @@ class TestValidation(unittest.TestCase):
             self.assertIsInstance(y, np.ndarray)
             self.assertEqual(y.ndim, 1)
 
+        # pandas.Series
+        x = pd.Series([1., 2., 3.])
+        y = check_data_1d(x)
+        self.assertIsInstance(y, pd.Series)
+        pd.testing.assert_series_equal(y, x)
+
         # Scalars should be coerced into 1D arrays
         x = 0
         y = check_data_1d(x)

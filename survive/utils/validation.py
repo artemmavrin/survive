@@ -181,7 +181,7 @@ def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
 
     Returns
     -------
-    data : one-dimensional numpy.ndarray
+    data : one-dimensional numpy.ndarray or pandas.Series
         The validated one-dimensional array.
 
     Raises
@@ -191,12 +191,16 @@ def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
         the optional constraints on the data type or number of entries is
         violated.
     """
-    # Coerce into a NumPy array
-    data = np.array(data, dtype=dtype, copy=copy, order=order)
+    if isinstance(data, pd.Series):
+        # Potentially copy the Series
+        data = pd.Series(data, dtype=dtype, copy=copy)
+    else:
+        # Coerce into a NumPy array
+        data = np.array(data, dtype=dtype, copy=copy, order=order)
 
-    # Coerce scalars to arrays
-    if data.ndim < 1:
-        data = data.reshape(-1)
+        # Coerce scalars to arrays
+        if data.ndim < 1:
+            data = data.reshape(-1)
 
     # Ensure array is at most one dimensional and non-empty
     if data.ndim > 1:
