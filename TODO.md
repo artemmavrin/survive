@@ -2,10 +2,11 @@
 
 ## Survivor/hazard function estimation
 
-- [ ] Nonparmetric model quantiles
-- [ ] Nonparmetric model restricted mean
-- [ ] Parameteric models (exponential, Weibull, etc.)
-- [ ] Nelson-Aalen-(Fleming-Harrington?) estimator
+- [X] Nonparametric model quantiles
+- [ ] Nonparametric model quantile confidence intervals
+- [ ] Nonparametric model restricted mean
+- [ ] Parametric models (exponential, Weibull, etc.)
+- [ ] Nelson-Aalen(-Fleming-Harrington?) estimator
 - [ ] Actuarial estimator
 
 ## Hypothesis Testing

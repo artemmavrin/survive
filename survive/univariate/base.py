@@ -292,6 +292,139 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
+    @abc.abstractmethod
+    def _quantile(self, *, p, i):
+        """Estimates time-to-event distribution quantiles for a single group.
+
+        Parameters
+        ----------
+        p : array-like
+            One-dimensional array of probability levels.
+        i : int
+            Index of the group whose survival function variance estimates should
+            be returned.
+
+        Returns
+        -------
+        quantiles : float or numpy.ndarray
+            The quantile estimates. This is either a float or a one-dimensional
+            array depending on whether the parameter `time` is a scalar or a
+            one-dimensional array with at least two elements.
+        """
+        pass
+
+    def quantile(self, prob, group=None):
+        """Quantile estimates for the time-to-event distribution.
+
+        For a probability level p between 0 and 1, the p-quantile of the
+        time-to-event distribution whose survival function S(t) is being
+        estimated is defined to be the time at which the horizontal line at
+        height 1-p intersects with the survival curve. If such a time is not
+        unique, then instead there is a time interval on which the survival
+        curve is flat and coincides with the horizontal line at height 1-p. In
+        this case the midpoint of this interval is taken to be the p-quantile
+        (this is just one of many possible conventions, and the one used by the
+        R package ``survival``).
+
+        Accordingly, estimates of the p-quantile from the survival function
+        estimator are obtained by finding the time at the point of intersection
+        of the survival curve estimate with the horizontal line at height 1-p.
+        If there is an interval of such times, then its midpoint is selected (as
+        described above). If the survival function estimate never gets as low as
+        1-p, then the p-quantile cannot be estimated.
+
+        Parameters
+        ----------
+        prob : array-like
+            One-dimensional array of values between 0 and 1 representing the
+            probability levels of the desired quantiles.
+        group : group label or None, optional (default: None)
+            Specify the group whose quantile estimates should be returned.
+            Ignored if there is only one group. If not specified, quantile
+            estimates for all the groups are returned.
+
+        Returns
+        -------
+        quantiles : float or numpy.ndarray or pandas.DataFrame
+            The quantiles.
+            Possible shapes:
+                * If there is only one group or if a group is specified, then
+                  these are either floats or one-dimensional arrays depending
+                  on whether the parameter `time` is a scalar or a
+                  one-dimensional array with at least two elements,
+                  respectively.
+                * If there is more than one group and no group is specified,
+                  then these are pandas.DataFrames with as many rows as entries
+                  in `prob` and one column for each group.
+            Entries for probability levels for which the quantile estimate is
+            not defined are nan (not a number).
+
+        Raises
+        ------
+        ValueError
+            If an entry in `prob` is less than zero or greater than one.
+        """
+        self.check_fitted()
+
+        # Validate parameters
+        prob = check_data_1d(prob)
+        if not np.all((prob >= 0) * (prob <= 1)):
+            raise ValueError(
+                "Probability levels must be between zero and one.")
+
+        if group in self._data.groups:
+            i = (self._data.groups == group).argmax()
+            return self._quantile(p=prob, i=i)
+        elif self._data.n_groups == 1:
+            return self._quantile(p=prob, i=0)
+        elif group is None:
+            return pd.DataFrame({g: self._quantile(p=prob, i=i)
+                                 for i, g in enumerate(self._data.groups)},
+                                index=prob)
+        else:
+            raise ValueError(f"Not a known group label: {group}.")
+
+    def describe(self):
+        """Descriptive statistics about this survival function estimator.
+
+        Returns
+        -------
+        table : pandas.DataFrame
+            A DataFrame containing descriptive statistics for each group.
+            Columns:
+            * observations
+                The number of observations.
+            * events
+                The number of true events/failures.
+            * censored
+                The number of censored observations.
+            * 1st qu.
+                The first quartile estimate (0.25-quantile).
+            * median
+                The median estimate (0.5-quantile).
+            * 3rd qu.
+                The third quartile estimate (0.75-quantile).
+        Indices:
+            The distinct group labels.
+        """
+        counts = self.data.counts
+        qs = self.quantile([0.25, 0.5, 0.75])
+        columns = ["1st qu.", "median", "3rd qu."]
+        if self.data.n_groups == 1:
+            # ``qs`` is a numpy.ndarray
+            qs = pd.DataFrame({col: q for col, q in zip(columns, qs)},
+                              index=counts.index)
+        else:
+            # ``qs`` is a pandas.DataFrame
+            rows = qs.iterrows()
+            qs = pd.DataFrame({col: q for col, (_, q) in zip(columns, rows)},
+                              index=counts.index)
+        return pd.concat((counts, qs), axis=1)
+
+    def __str__(self):
+        """Get the descriptive statistics table as a string."""
+        return self.describe().to_string(index=(self.data.n_groups > 1))
+
     @property
     def summary(self):
         """Get a summary of this survival function estimator.
@@ -318,6 +451,12 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
     _survival_var: np.ndarray
     _survival_ci_lower: np.ndarray
     _survival_ci_upper: np.ndarray
+
+    # Tolerance for checking if a probability level "exactly" equals a survival
+    # probability when computing quantiles of the time-to-event distribution.
+    # This is to counteract round-off error encountered when computing the
+    # survival function estimates.
+    _quantile_tol = np.sqrt(np.finfo(np.float_).eps)
 
     @abc.abstractmethod
     def fit(self, *args, **kwargs):
@@ -394,6 +533,41 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         upper = np.concatenate(([1.], self._survival_ci_upper[i]))[ind]
         return (lower.item() if lower.size == 1 else lower,
                 upper.item() if upper.size == 1 else upper)
+
+    def _quantile(self, *, p, i):
+        """Estimates time-to-event distribution quantiles for a single group.
+
+        Parameters
+        ----------
+        p : array-like
+            One-dimensional array of probability levels.
+        i : int
+            Index of the group whose survival function variance estimates should
+            be returned.
+
+        Returns
+        -------
+        quantiles : float or numpy.ndarray
+            The quantile estimates. This is either a float or a one-dimensional
+            array depending on whether the parameter `time` is a scalar or a
+            one-dimensional array with at least two elements.
+        """
+        cdf = np.concatenate(([0.], 1 - self._survival[i]))
+        ind1 = np.searchsorted(cdf - self._quantile_tol, p)
+        ind2 = np.searchsorted(cdf + self._quantile_tol, p)
+        if (self.data.censor[i].shape[0] > 0
+                and self.data.censor[i][-1] > self.data.time[i][-1]):
+            last = self.data.censor[i][-1]
+        else:
+            last = self.data.time[i][-1]
+        qs = np.concatenate(([0.], self.data.time[i], [last]))
+        quantiles = 0.5 * (qs[ind1] + qs[ind2])
+
+        # Special cases
+        quantiles[p < self._quantile_tol] = np.min(self.data.data.entry)
+        quantiles[p > cdf[-1] + self._quantile_tol] = np.nan
+
+        return quantiles.item() if quantiles.size == 1 else quantiles
 
     def plot(self, *groups, ci=True, ci_kwargs=None, mark_censor=True,
              mark_censor_kwargs=None, legend=True, legend_kwargs=None,
@@ -632,8 +806,8 @@ class UnivariateSurvivalSummary(Summary):
         """Return a string summary of the survivor function estimator."""
         summary = super(UnivariateSurvivalSummary, self).__str__()
         for group in self.model.data.groups:
-            counts = self.model.data.counts.loc[[group]]
-            summary += f"\n\n{counts.to_string()}"
+            describe = self.model.describe().loc[[group]]
+            summary += f"\n\n{describe.to_string()}"
             table = self.table(group)
             summary += f"\n\n{table.to_string(index=False)}"
         return summary

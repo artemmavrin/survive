@@ -45,6 +45,65 @@ class TestKaplanMeier(unittest.TestCase):
         survival = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0., 0.]
         np.testing.assert_almost_equal(km.predict(data), survival)
 
+        # Check quantiles
+        prob = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+        quantiles = [0., 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5., 5.]
+        np.testing.assert_almost_equal(km.quantile(prob), quantiles)
+
+        # Calling predict(), var(), se() with an array argument should return
+        # an array. Calling ci() should return a pair of arrays.
+        lower, upper = km.ci(data)
+        for val in (km.predict(data), km.var(data), km.se(data), lower, upper):
+            self.assertIsInstance(val, np.ndarray)
+            self.assertEqual(val.shape, (len(data),))
+
+        # Calling predict(), var(), se() with a scalar argument should return
+        # a float. Calling ci() should return a pair of floats.
+        for t in data:
+            lower, upper = km.ci(t)
+            for val in (km.predict(t), km.var(t), km.se(t), lower, upper):
+                self.assertIsInstance(val, float)
+
+    def test_censoring_one_group(self):
+        """Simple example with one group and censoring.
+
+        The data are the numbers 1, 2, 3, 4, 5+ (the + indicates that
+        observation is censored). In this easy case, the Kaplan-Meier estimator
+        should look like
+
+                |
+            1.0 |-----+
+                |     |
+            0.8 |     +-----+
+                |           |
+            0.6 |           +-----+
+                |                 |
+            0.4 |                 +-----+
+                |                       |
+            0.2 |                       +-----------...
+                |
+            0.0 +-----+-----+-----+-----+-----+-----
+                0     1     2     3     4     5
+        """
+        time = [1, 2, 3, 4, 5]
+        status = [1, 1, 1, 1, 0]
+        km = KaplanMeier()
+        km.fit(time, status=status)
+
+        # There should only be one group
+        self.assertEqual(km.data.n_groups, 1)
+
+        # Check estimated survival probabilities
+        data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
+        survival \
+            = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0.2, 0.2, 0.2]
+        np.testing.assert_almost_equal(km.predict(data), survival)
+
+        # Check quantiles
+        prob = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+        quantiles = [0., 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, np.nan, np.nan]
+        np.testing.assert_almost_equal(km.quantile(prob), quantiles)
+
         # Calling predict(), var(), se() with an array argument should return
         # an array. Calling ci() should return a pair of arrays.
         lower, upper = km.ci(data)
