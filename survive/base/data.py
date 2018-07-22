@@ -195,7 +195,7 @@ class SurvivalData(object):
 
     def __str__(self):
         """Short summary of the observation counts within each group."""
-        return self.counts.to_string(index=True if self.n_groups > 1 else False)
+        return self.counts.to_string(index=(self.n_groups > 1))
 
     def table(self, group=None):
         """Get survival tables within groups.
