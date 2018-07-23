@@ -244,7 +244,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                 # Estimate the survival function variance using the bootstrap
                 self._survival_var[i] \
                     = _km_var_boot(data=self._data, index=i,
-                                   random_state=self.random_state,
+                                   random_state=self._random_state,
                                    n_boot=self.n_boot)
                 with np.errstate(divide="ignore", invalid="ignore"):
                     dispersion2 \

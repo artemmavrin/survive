@@ -25,26 +25,35 @@ class Model(metaclass=abc.ABCMeta):
     ----------
     model_type : str
         The name of this model type.
-    random_state : numpy.random.RandomState
-        This model's random number generator.
+    random_state : any
+        Seed for this model's random number generator.
+        NB: this may not be a random number generator (i.e., a
+        numpy.random.RandomState object). The actual RNG is not a public
+        attribute and should not be used directly.
     """
     model_type: str
 
-    # Internal random number generator
+    # Internal random number generator (RNG)
     _random_state: np.random.RandomState = np.random.RandomState(None)
+
+    # Internal seed for this model's RNG
+    _random_state_seed = None
 
     @property
     def random_state(self):
-        """This model's random number generator."""
-        return self._random_state
+        """Seed for this model's random number generator."""
+        return self._random_state_seed
 
     @random_state.setter
     def random_state(self, random_state):
         """Set the random number generator."""
+        self._random_state_seed = random_state
         self._random_state = check_random_state(random_state)
 
     def __repr__(self):
-        """Return the call used to initialize this model.
+        """Return a pretty-printed call used to initialize this model.
+
+        Algorithm modified from sklearn.base._pprint().
 
         Returns
         -------
@@ -52,10 +61,38 @@ class Model(metaclass=abc.ABCMeta):
             A string which should be able to be used to instantiate a new
             identical model.
         """
-        name = self.__class__.__name__
-        keys = inspect.signature(self.__init__).parameters.keys()
-        kwargs = (f"{k}={repr(getattr(self, k))}" for k in keys)
-        return name + "(" + ", ".join(kwargs) + ")"
+        class_name = self.__class__.__name__
+        offset = len(class_name) + 1
+        max_line_length = 75
+
+        keys = sorted(inspect.signature(self.__init__).parameters.keys())
+        params = {k: getattr(self, k) for k in keys}
+
+        params_list = list()
+        this_line_length = offset
+        line_sep = ",\n" + offset * " "
+        for i, (k, v) in enumerate(params.items()):
+            if isinstance(v, float):
+                this_repr = f"{k}={str(v)}"
+            else:
+                this_repr = f"{k}={repr(v)}"
+            if i > 0:
+                if (this_line_length + len(this_repr) >= max_line_length
+                        or "\n" in this_repr):
+                    # Start a new line
+                    params_list.append(line_sep)
+                    this_line_length = len(line_sep)
+                else:
+                    # Continue current line
+                    params_list.append(", ")
+                    this_line_length += 2
+            params_list.append(this_repr)
+            this_line_length += len(this_repr)
+
+        lines = "".join(params_list)
+        lines = "\n".join(l.rstrip() for l in lines.splitlines())
+
+        return f"{class_name}({lines})"
 
     def summary(self):
         """Return a summary of this model."""
@@ -84,7 +121,7 @@ class Summary(object):
 
     def __str__(self):
         """Return a basic string representation of the model."""
-        return f"{repr(self.model)}\n\n{self.model.model_type}"
+        return self.model.model_type
 
 
 class Fittable(metaclass=abc.ABCMeta):
