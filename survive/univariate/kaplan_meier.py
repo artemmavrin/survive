@@ -29,6 +29,7 @@ import scipy.stats as st
 
 from .base import NonparametricUnivariateSurvival
 from ..base import SurvivalData
+from ..utils.validation import check_int
 
 
 class KaplanMeier(NonparametricUnivariateSurvival):
@@ -76,6 +77,10 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                 Use Greenwood's formula (Greenwood (1926)).
             * "aalen-johansen"
                 Use the variance estimate suggested by Aalen & Johansen (1978).
+            * "bootstrap"
+                Use the bootstrap (repeatedly sampling with replacement from the
+                data and estimating the survival curve each time) to estimate
+                the survival function variance (Efron (1981)).
 
     References
     ----------
@@ -89,14 +94,20 @@ class KaplanMeier(NonparametricUnivariateSurvival):
           non-homogeneous Markov chains based on censored observations."
           Scandinavian Journal of Statistics. Volume 5, Number 3 (1978),
           pp. 141--150. JSTOR: http://www.jstor.org/stable/4615704
+        * Bradley Efron. "Censored data and the bootstrap." Journal of the
+          American Statistical Association. Volume 76, Number 374 (1981),
+          pp. 312--19. doi: https://doi.org/10.2307/2287832.
     """
     model_type = "Kaplan-Meier estimator"
 
     _conf_types = ("linear", "log", "log-log", "logit", "arcsin")
 
     # Types of variance estimators
-    _var_types = ("greenwood", "aalen-johansen")
+    _var_types = ("greenwood", "aalen-johansen", "bootstrap")
     _var_type: str
+
+    # Number of bootstrap samples to draw
+    _n_boot: int
 
     @property
     def var_type(self):
@@ -113,8 +124,29 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         else:
             raise ValueError(f"Invalid value for 'var_type': {var_type}.")
 
+    @property
+    def n_boot(self):
+        """Number of bootstrap samples to draw when ``var_type`` is "bootstrap".
+        Not used for any other values of ``var_type``, so None is returned in
+        those cases.
+        """
+        if self.var_type == "bootstrap":
+            return self._n_boot
+        else:
+            return None
+
+    @n_boot.setter
+    def n_boot(self, n_boot):
+        """Set the number of bootstrap samples to draw for bootstrap variance
+        estimates.
+        """
+        if self.fitted:
+            raise RuntimeError("'n_boot' cannot be set after fitting.")
+        self._n_boot = check_int(n_boot, minimum=1,
+                                 allow_none=(self._var_type != "bootstrap"))
+
     def __init__(self, conf_type="log-log", conf_level=0.95,
-                 var_type="greenwood"):
+                 var_type="greenwood", n_boot=500, random_state=None):
         """Initialize the Kaplan-Meier survival function estimator.
 
         Parameters
@@ -135,12 +167,22 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             Accepted values:
                 * "greenwood"
                 * "aalen-johansen"
+                * "bootstrap"
             See this class's docstring for details.
+        n_boot : int, optional (default: 500)
+            Number of bootstrap samples to draw when estimating the survival
+            function variance using the bootstrap (when ``var_type`` is
+            "bootstrap"). Ignored for other values of ``var_type``.
+        random_state : int or numpy.random.RandomState, optional (default: None)
+            Random number generator (or a seed for one) used for sampling and
+            for variance computations if ``var_type`` is "bootstrap".
         """
         # Parameter validation is done in each parameter's setter method
         self.conf_type = conf_type
         self.conf_level = conf_level
         self.var_type = var_type
+        self.n_boot = n_boot
+        self.random_state = random_state
 
     def fit(self, time, status=None, entry=None, group=None, data=None):
         """Fit the Kaplan-Meier estimator to survival data.
@@ -197,22 +239,38 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             # Product-limit survival probability estimates
             self._survival[i] = np.cumprod(1. - e / r)
 
-            # Sum occurring in the Greenwood and Aalen-Johansen variance
-            # estimates
-            if self._var_type == "greenwood":
-                # Greenwood's formula
-                with np.errstate(divide="ignore"):
-                    var_sum = np.cumsum(e / r / (r - e))
-            elif self._var_type == "aalen-johansen":
-                # Aalen-Johansen estimate
-                var_sum = np.cumsum(e / (r ** 2))
+            # In the following block, the variable ``dispersion2`` is the
+            # variance estimate divided by the square of the survival function
+            # estimate (hence it is a measure of the squared dispersion of the
+            # survival function estimate). It arises again in our confidence
+            # interval computations later.
+            if self._var_type == "bootstrap":
+                # Estimate the survival function variance using the bootstrap
+                self._survival_var[i] \
+                    = _km_var_boot(data=self._data, index=i,
+                                   random_state=self.random_state,
+                                   n_boot=self.n_boot)
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    dispersion2 \
+                        = self._survival_var[i] / (self._survival[i] ** 2)
             else:
-                # This should not be reachable
-                raise RuntimeError(f"Invalid variance type: {self._var_type}.")
+                # Estimate the survival function variance using Greenwood's
+                # formula or the Aalen-Johansen method
+                if self._var_type == "greenwood":
+                    # Greenwood's formula
+                    with np.errstate(divide="ignore"):
+                        dispersion2 = np.cumsum(e / r / (r - e))
+                elif self._var_type == "aalen-johansen":
+                    # Aalen-Johansen estimate
+                    dispersion2 = np.cumsum(e / (r ** 2))
+                else:
+                    # This should not be reachable
+                    raise RuntimeError(
+                        f"Invalid variance type: {self._var_type}.")
 
-            # Survival function variance estimates
-            with np.errstate(invalid="ignore"):
-                self._survival_var[i] = (self._survival[i] ** 2) * var_sum
+                with np.errstate(invalid="ignore"):
+                    self._survival_var[i] \
+                        = (self._survival[i] ** 2) * dispersion2
 
             # Standard normal quantile for confidence intervals
             z = st.norm.ppf((1 - self.conf_level) / 2)
@@ -226,20 +284,20 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             elif self._conf_type == "log":
                 # CI based on a delta method CI for log(S(t))
                 with np.errstate(invalid="ignore"):
-                    c = z * np.sqrt(var_sum)
+                    c = z * np.sqrt(dispersion2)
                     lower = self._survival[i] * np.exp(c)
                     upper = self._survival[i] * np.exp(-c)
             elif self._conf_type == "log-log":
                 # CI based on a delta method CI for -log(-log(S(t)))
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    c = z * np.sqrt(var_sum) / np.log(self._survival[i])
+                    c = z * np.sqrt(dispersion2) / np.log(self._survival[i])
                     lower = self._survival[i] ** np.exp(c)
                     upper = self._survival[i] ** np.exp(-c)
             elif self._conf_type == "logit":
                 # CI based on a delta method CI for log(S(t)/(1-S(t)))
                 with np.errstate(invalid="ignore"):
                     odds = self._survival[i] / (1 - self._survival[i])
-                    c = z * np.sqrt(var_sum) / (1 - self._survival[i])
+                    c = z * np.sqrt(dispersion2) / (1 - self._survival[i])
                     lower = 1 - 1 / (1 + odds * np.exp(c))
                     upper = 1 - 1 / (1 + odds * np.exp(-c))
                 pass
@@ -248,7 +306,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                 with np.errstate(invalid="ignore"):
                     arcsin = np.arcsin(np.sqrt(self._survival[i]))
                     odds = self._survival[i] / (1 - self._survival[i])
-                    c = 0.5 * z * np.sqrt(odds * var_sum)
+                    c = 0.5 * z * np.sqrt(odds * dispersion2)
                     lower = np.sin(np.maximum(0., arcsin + c)) ** 2
                     upper = np.sin(np.minimum(np.pi / 2, arcsin - c)) ** 2
             else:
@@ -263,3 +321,70 @@ class KaplanMeier(NonparametricUnivariateSurvival):
 
         self.fitted = True
         return self
+
+
+def _km_var_boot(data: SurvivalData, index, random_state, n_boot):
+    """Estimate Kaplan-Meier survival function variance using the bootstrap.
+
+    Parameters
+    ----------
+    data : SurvivalData
+        Survival data used to fit the Kaplan-Meier estimator.
+    index : int
+        The group index.
+    random_state : numpy.random.RandomState
+        Random number generator.
+    n_boot : int
+        Number of bootstrap samples to draw.
+
+    Returns
+    -------
+    survival_var : numpy.ndarray
+        One-dimensional array of survival function variance estimates at each
+        observed event time.
+    """
+    # Extract observed times, censoring indicators, and entry times for the
+    # specified group
+    ind = (data.sample.group == data.groups[index])
+    time = np.asarray(data.sample.time[ind])
+    status = np.asarray(data.sample.status[ind])
+    entry = np.asarray(data.sample.entry[ind])
+
+    # Distinct true event times
+    events = data.time[index]
+
+    # n = sample size, k = number of distinct true events
+    n = len(time)
+    k = len(events)
+
+    # Initialize array of bootstrap Kaplan-Meier survival function estimates at
+    # the observed true event times
+    survival_boot = np.empty(shape=(n_boot, k), dtype=np.float_)
+
+    # The bootstrap
+    for i in range(n_boot):
+        # Draw a bootstrap sample
+        ind_boot = random_state.choice(n, size=n, replace=True)
+        time_boot = time[ind_boot]
+        status_boot = status[ind_boot]
+        entry_boot = entry[ind_boot]
+
+        # e = number of events at an event time, r = size of the risk set at an
+        # event time
+        e = np.empty(shape=(k,), dtype=np.int_)
+        r = np.empty(shape=(k,), dtype=np.int_)
+        for j, t in enumerate(events):
+            e[j] = np.sum((time_boot == t) & (status_boot == 1))
+            r[j] = np.sum((entry_boot < t) & (time_boot >= t))
+
+        # Compute the survival curve
+        with np.errstate(divide="ignore", invalid="ignore"):
+            survival_boot[i] = np.cumprod(1. - e / r)
+
+        # Special case: if sufficiently late times didn't make it into our
+        # bootstrap sample, then the risk set at those time is empty and the
+        # resulting survival function estimates are nan (not a number). Instead,
+        # make the survival probability at these times zero.
+        survival_boot[i][r == 0] = 0.
+
+    return survival_boot.var(axis=0, ddof=1)
