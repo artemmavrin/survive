@@ -237,6 +237,49 @@ class SurvivalData(object):
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
+    def at_risk(self, time, group=None):
+        """The number of individuals at risk (i.e., entered but yet to undergo a
+        true event or censoring) at the given times.
+
+        Parameters
+        ----------
+        time : float or array-like
+            Times at which to report the risk set sizes.
+        group : group label, optional (default: None)
+            Specify the group whose risk set size is desired. If None, risk set
+            sizes for all the groups are returned.
+
+        Returns
+        -------
+        at_risk : int or numpy.ndarray or pandas.DataFrame
+            Number of individuals at risk at the given times.
+            Possible shapes:
+                * If there is only one group in the model or if a group is
+                  specified, then this is either an int or a one-dimensional
+                  array depending on the shape of ``time``.
+                * If the model has more than one group and no group is
+                  specified, then this is a pandas.DataFrame with as many rows
+                  as entries in ``time`` and one column for each group.
+        """
+        time = check_data_1d(time)
+
+        if group in self.groups:
+            ind = (self.sample.group == group)
+            entry = np.asarray(self.sample.entry[ind])
+            final = np.asarray(self.sample.time[ind])
+            at_risk = np.empty(len(time), dtype=np.int_)
+            for j, t in enumerate(time):
+                at_risk[j] = np.sum((entry < t) & (t <= final))
+            return at_risk.item() if at_risk.size == 1 else at_risk
+        elif self.n_groups == 1:
+            return self.at_risk(time, group=self.groups[0])
+        elif group is None:
+            return pd.DataFrame({group: self.at_risk(time, group=group)
+                                 for group in self.groups},
+                                index=time).rename_axis("time")
+        else:
+            raise ValueError(f"Not a known group label: {group}.")
+
 
 def _check_df_column(data: pd.DataFrame, name):
     """Check if `name` is the name of a column in a DataFrame `data`. If it is,
