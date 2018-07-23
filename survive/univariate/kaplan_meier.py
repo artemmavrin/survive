@@ -100,10 +100,10 @@ class KaplanMeier(NonparametricUnivariateSurvival):
     """
     model_type = "Kaplan-Meier estimator"
 
-    _conf_types = ("linear", "log", "log-log", "logit", "arcsin")
+    _conf_types = ("arcsin", "linear", "log", "log-log", "logit")
 
     # Types of variance estimators
-    _var_types = ("greenwood", "aalen-johansen", "bootstrap")
+    _var_types = ("aalen-johansen", "bootstrap", "greenwood")
     _var_type: str
 
     # Number of bootstrap samples to draw
@@ -127,8 +127,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
     @property
     def n_boot(self):
         """Number of bootstrap samples to draw when ``var_type`` is "bootstrap".
-        Not used for any other values of ``var_type``, so None is returned in
-        those cases.
+        Not used for any other values of ``var_type``.
         """
         return self._n_boot
 
@@ -229,6 +228,8 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         self._survival_ci_lower = np.empty(self._data.n_groups, dtype=object)
         self._survival_ci_upper = np.empty(self._data.n_groups, dtype=object)
         for i in range(self._data.n_groups):
+            # e = number of events at an event time, r = size of the risk set at
+            # an event time
             e = self._data.n_events[i]
             r = self._data.n_at_risk[i]
 
@@ -315,6 +316,13 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                 self._survival_ci_lower[i] = np.maximum(lower, 0.)
                 self._survival_ci_upper[i] = np.minimum(upper, 1.)
 
+            # Make sure that variance estimates and confidence intervals are NaN
+            # when the estimated survival probability is zero
+            ind_zero = (self._survival[i] == 0.)
+            self._survival_var[i][ind_zero] = np.nan
+            self._survival_ci_lower[i][ind_zero] = np.nan
+            self._survival_ci_upper[i][ind_zero] = np.nan
+
         self.fitted = True
         return self
 
@@ -381,6 +389,6 @@ def _km_var_boot(data: SurvivalData, index, random_state, n_boot):
         # bootstrap sample, then the risk set at those time is empty and the
         # resulting survival function estimates are nan (not a number). Instead,
         # make the survival probability at these times zero.
-        survival_boot[i][r == 0] = 0.
+        survival_boot[i, r == 0] = 0.
 
     return survival_boot.var(axis=0, ddof=1)
