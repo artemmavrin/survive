@@ -130,10 +130,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         Not used for any other values of ``var_type``, so None is returned in
         those cases.
         """
-        if self.var_type == "bootstrap":
-            return self._n_boot
-        else:
-            return None
+        return self._n_boot
 
     @n_boot.setter
     def n_boot(self, n_boot):
@@ -142,8 +139,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         """
         if self.fitted:
             raise RuntimeError("'n_boot' cannot be set after fitting.")
-        self._n_boot = check_int(n_boot, minimum=1,
-                                 allow_none=(self._var_type != "bootstrap"))
+        self._n_boot = check_int(n_boot, minimum=1)
 
     def __init__(self, conf_type="log-log", conf_level=0.95,
                  var_type="greenwood", n_boot=500, random_state=None):
