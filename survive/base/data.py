@@ -11,7 +11,7 @@ class SurvivalData(object):
 
     Properties
     ----------
-    data : pandas.DataFrame
+    sample : pandas.DataFrame
         A DataFrame containing the sample used to initialize this object.
         Columns:
             * time
@@ -55,7 +55,7 @@ class SurvivalData(object):
         Indices:
             The distinct group labels.
     """
-    data: pd.DataFrame
+    sample: pd.DataFrame
     groups: np.ndarray
     n_groups: int
     time: np.ndarray
@@ -144,8 +144,8 @@ class SurvivalData(object):
         group = group[ind]
 
         # Put the initializer parameters into a DataFrame
-        self.data = pd.DataFrame(dict(time=time, status=status, entry=entry,
-                                      group=group))
+        self.sample = pd.DataFrame(dict(time=time, status=status, entry=entry,
+                                        group=group))
 
         # Get distinct groups
         self.groups = np.unique(group)

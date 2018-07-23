@@ -484,7 +484,7 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         quantiles = 0.5 * (qs[ind1] + qs[ind2])
 
         # Special cases
-        quantiles[prob < self._quantile_tol] = np.min(self.data.data.entry)
+        quantiles[prob < self._quantile_tol] = np.min(self.data.sample.entry)
         quantiles[prob > cdf[-1] + self._quantile_tol] = np.nan
 
         return quantiles.item() if quantiles.size == 1 else quantiles

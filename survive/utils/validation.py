@@ -91,6 +91,9 @@ def check_int(num, *, minimum=None, maximum=None, allow_none=False):
     """
     num = _check_type(num, numbers.Integral, allow_none)
 
+    if num is None:
+        return None
+
     if minimum is not None:
         minimum = check_int(minimum)
         if num < minimum:
@@ -135,6 +138,9 @@ def check_float(num, *, positive=False, minimum=None, maximum=None,
         constraints are violated.
     """
     num = _check_type(num, numbers.Real, allow_none)
+
+    if num is None:
+        return None
 
     positive = check_bool(positive)
     if positive and num <= 0.0:
