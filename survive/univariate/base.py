@@ -407,11 +407,7 @@ class UnivariateSurvival(Model, Fittable, Predictor):
             rows = qs.iterrows()
             qs = pd.DataFrame({col: q for col, (_, q) in zip(columns, rows)},
                               index=counts.index)
-        return pd.concat((counts, qs), axis=1)
-
-    def __str__(self):
-        """Get the descriptive statistics table as a string."""
-        return self.describe().to_string(index=(self.data.n_groups > 1))
+        return pd.concat((counts, qs), axis=1).rename_axis("group")
 
     def summary(self):
         """Get a summary of this survival function estimator.

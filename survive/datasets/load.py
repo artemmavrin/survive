@@ -38,7 +38,8 @@ def leukemia():
           London (1984), pp. ix+201.
     """
     return pd.read_csv(_full_filename("leukemia.csv"), header=0,
-                       dtype=dict(time="int", status="int", group="category"))
+                       dtype=dict(time="int", status="int", group="category")
+                       ).rename_axis("patient")
 
 
 def channing():
@@ -89,4 +90,5 @@ def channing():
     """
     return pd.read_csv(_full_filename("channing.csv"), header=0,
                        dtype=dict(sex="category", entry="int", exit="int",
-                                  time="int", status="int"))
+                                  time="int", status="int")
+                       ).rename_axis("resident")
