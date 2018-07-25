@@ -12,7 +12,7 @@ References
 ----------
     * E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
       observations". Journal of the American Statistical Association, Volume 53,
-      Issue 282 (1958), pp. 457--481. doi: https://doi.org/10.2307/2281868
+      Issue 282 (1958), pp. 457--481. DOI: https://doi.org/10.2307/2281868
     * Terry M. Therneau. A Package for Survival Analysis in S. version 2.38
       (2015). CRAN: https://CRAN.R-project.org/package=survival
     * D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall, London
@@ -21,7 +21,7 @@ References
       Failure Time Data. Second Edition. Wiley (2002) pp. xiv+439.
     * John P. Klein and Melvin L. Moeschberger. Survival Analysis. Techniques
       for Censored and Truncated Data. Second Edition. Springer-Verlag, New York
-      (2003) pp. xvi+538. doi: https://doi.org/10.1007/b97377
+      (2003) pp. xvi+538. DOI: https://doi.org/10.1007/b97377
 """
 
 import numpy as np
@@ -54,7 +54,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         where z is the (1-conf_level)/2-quantile of the standard normal
         distribution. If g(y) denotes the inverse of f, then a confidence
         interval for p is
-                [g(f(p) + z * se(p) * f'(p)), g(f(p) - z * se(p) * f'(p))].
+            [g(f(p) + z * se(p) * f'(p)), g(f(p) - z * se(p) * f'(p))].
         These confidence intervals were proposed by Borgan & Liestøl (1990). We
         give a table of the supported transformations below.
 
@@ -76,7 +76,12 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             * "greenwood"
                 Use Greenwood's formula (Greenwood (1926)).
             * "aalen-johansen"
-                Use the variance estimate suggested by Aalen & Johansen (1978).
+                Use the Poisson moment approximation to the binomial suggested
+                by Aalen & Johansen (1978). This is less frequently used than
+                Greenwood's formula, and the two methods are usually close to
+                each other numerically. However, Klein (1991) recommends using
+                Greenwood's formula because it is less biased and has comparable
+                or lower mean squared error.
             * "bootstrap"
                 Use the bootstrap (repeatedly sampling with replacement from the
                 data and estimating the survival curve each time) to estimate
@@ -94,9 +99,13 @@ class KaplanMeier(NonparametricUnivariateSurvival):
           non-homogeneous Markov chains based on censored observations."
           Scandinavian Journal of Statistics. Volume 5, Number 3 (1978),
           pp. 141--150. JSTOR: http://www.jstor.org/stable/4615704
+        * John P. Klein. "Small sample moments of some estimators of the
+          variance of the Kaplan-Meier and Nelson-Aalen estimators."
+          Scandinavian Journal of Statistics. Volume 18, Number 4 (1991),
+          pp. 333--40. JSTOR: http://www.jstor.org/stable/4616215.
         * Bradley Efron. "Censored data and the bootstrap." Journal of the
           American Statistical Association. Volume 76, Number 374 (1981),
-          pp. 312--19. doi: https://doi.org/10.2307/2287832.
+          pp. 312--19. DOI: https://doi.org/10.2307/2287832.
     """
     model_type = "Kaplan-Meier estimator"
 
@@ -105,6 +114,10 @@ class KaplanMeier(NonparametricUnivariateSurvival):
     # Types of variance estimators
     _var_types = ("aalen-johansen", "bootstrap", "greenwood")
     _var_type: str
+
+    # How to handle tied event times for the Aalen-Johansen variance estimator
+    _tie_breaks = ("continuous", "discrete")
+    _tie_break: str
 
     # Number of bootstrap samples to draw
     _n_boot: int
@@ -125,6 +138,23 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             raise ValueError(f"Invalid value for 'var_type': {var_type}.")
 
     @property
+    def tie_break(self):
+        """How to handle tied event times for the Aalen-Johansen variance
+        estimator.
+        """
+        return self._tie_break
+
+    @tie_break.setter
+    def tie_break(self, tie_break):
+        """Set the tie-breaking scheme."""
+        if self.fitted:
+            raise RuntimeError("'tie_break' cannot be set after fitting.")
+        elif tie_break in self._tie_breaks:
+            self._tie_break = tie_break
+        else:
+            raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
+
+    @property
     def n_boot(self):
         """Number of bootstrap samples to draw when ``var_type`` is "bootstrap".
         Not used for any other values of ``var_type``.
@@ -141,7 +171,8 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         self._n_boot = check_int(n_boot, minimum=1)
 
     def __init__(self, conf_type="log-log", conf_level=0.95,
-                 var_type="greenwood", n_boot=500, random_state=None):
+                 var_type="greenwood", tie_break="discrete", n_boot=500,
+                 random_state=None):
         """Initialize the Kaplan-Meier survival function estimator.
 
         Parameters
@@ -164,6 +195,21 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                 * "aalen-johansen"
                 * "bootstrap"
             See this class's docstring for details.
+        tie_break : str, optional (default: "discrete")
+            Specify how to handle tied event times when computing the
+            Aalen-Johansen variance estimate (when ``var_type`` is
+            "aalen-johansen"). Ignored for other values of ``var_type``.
+            Accepted values:
+                * "discrete"
+                    Simultaneous events are genuine ties and not due to grouping
+                    or rounding.
+                * "continuous"
+                    True event times almost surely don't coincide, and any
+                    observed ties are due to grouping or rounding.
+            This choice changes the definition of the Nelson-Aalen estimator
+            increment, which consequently changes the definition of the
+            Aalen-Johansen variance estimate. See Sections 3.1.3 and 3.2.2 in
+            Aalen, Borgan, & Gjessing (2008).
         n_boot : int, optional (default: 500)
             Number of bootstrap samples to draw when estimating the survival
             function variance using the bootstrap (when ``var_type`` is
@@ -171,11 +217,19 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         random_state : int or numpy.random.RandomState, optional (default: None)
             Random number generator (or a seed for one) used for sampling and
             for variance computations if ``var_type`` is "bootstrap".
+
+        References
+        ----------
+            * Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
+              Event History Analysis. A Process Point of View. Springer-Verlag,
+              New York (2008) pp. xviii+540.
+              DOI: https://doi.org/10.1007/978-0-387-68560-1
         """
         # Parameter validation is done in each parameter's setter method
         self.conf_type = conf_type
         self.conf_level = conf_level
         self.var_type = var_type
+        self.tie_break = tie_break
         self.n_boot = n_boot
         self.random_state = random_state
 
@@ -236,11 +290,10 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             # Product-limit survival probability estimates
             self._survival[i] = np.cumprod(1. - e / r)
 
-            # In the following block, the variable ``dispersion2`` is the
-            # variance estimate divided by the square of the survival function
-            # estimate (hence it is a measure of the squared dispersion of the
-            # survival function estimate). It arises again in our confidence
-            # interval computations later.
+            # In the following block, the variable ``sigma2`` is the variance
+            # estimate divided by the square of the survival function
+            # estimate. It arises again in our confidence interval computations
+            # later.
             if self._var_type == "bootstrap":
                 # Estimate the survival function variance using the bootstrap
                 self._survival_var[i] \
@@ -248,26 +301,36 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                                    random_state=self._random_state,
                                    n_boot=self.n_boot)
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    dispersion2 \
-                        = self._survival_var[i] / (self._survival[i] ** 2)
+                    sigma2 = self._survival_var[i] / (self._survival[i] ** 2)
             else:
                 # Estimate the survival function variance using Greenwood's
                 # formula or the Aalen-Johansen method
                 if self._var_type == "greenwood":
                     # Greenwood's formula
                     with np.errstate(divide="ignore"):
-                        dispersion2 = np.cumsum(e / r / (r - e))
+                        sigma2 = np.cumsum(e / r / (r - e))
                 elif self._var_type == "aalen-johansen":
                     # Aalen-Johansen estimate
-                    dispersion2 = np.cumsum(e / (r ** 2))
+                    if self._tie_break == "discrete":
+                        sigma2 = np.cumsum(e / (r ** 2))
+                    elif self._tie_break == "continuous":
+                        # Increments of sum in equation (3.14) on page 84 of
+                        # Aalen, Borgan, & Gjessing (2008)
+                        inc = np.empty(len(e), dtype=np.float_)
+                        for j in range(len(e)):
+                            inc[j] = np.sum(1 / (r[j] - np.arange(e[j])) ** 2)
+                        sigma2 = np.cumsum(inc)
+                    else:
+                        # This should not be reachable
+                        raise RuntimeError(
+                            f"Invalid tie-breaking scheme: {self._tie_break}.")
                 else:
                     # This should not be reachable
                     raise RuntimeError(
                         f"Invalid variance type: {self._var_type}.")
 
                 with np.errstate(invalid="ignore"):
-                    self._survival_var[i] \
-                        = (self._survival[i] ** 2) * dispersion2
+                    self._survival_var[i] = (self._survival[i] ** 2) * sigma2
 
             # Standard normal quantile for confidence intervals
             z = st.norm.ppf((1 - self.conf_level) / 2)
@@ -281,20 +344,20 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             elif self._conf_type == "log":
                 # CI based on a delta method CI for log(S(t))
                 with np.errstate(invalid="ignore"):
-                    c = z * np.sqrt(dispersion2)
+                    c = z * np.sqrt(sigma2)
                     lower = self._survival[i] * np.exp(c)
                     upper = self._survival[i] * np.exp(-c)
             elif self._conf_type == "log-log":
                 # CI based on a delta method CI for -log(-log(S(t)))
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    c = z * np.sqrt(dispersion2) / np.log(self._survival[i])
+                    c = z * np.sqrt(sigma2) / np.log(self._survival[i])
                     lower = self._survival[i] ** np.exp(c)
                     upper = self._survival[i] ** np.exp(-c)
             elif self._conf_type == "logit":
                 # CI based on a delta method CI for log(S(t)/(1-S(t)))
                 with np.errstate(invalid="ignore"):
                     odds = self._survival[i] / (1 - self._survival[i])
-                    c = z * np.sqrt(dispersion2) / (1 - self._survival[i])
+                    c = z * np.sqrt(sigma2) / (1 - self._survival[i])
                     lower = 1 - 1 / (1 + odds * np.exp(c))
                     upper = 1 - 1 / (1 + odds * np.exp(-c))
                 pass
@@ -303,7 +366,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                 with np.errstate(invalid="ignore"):
                     arcsin = np.arcsin(np.sqrt(self._survival[i]))
                     odds = self._survival[i] / (1 - self._survival[i])
-                    c = 0.5 * z * np.sqrt(odds * dispersion2)
+                    c = 0.5 * z * np.sqrt(odds * sigma2)
                     lower = np.sin(np.maximum(0., arcsin + c)) ** 2
                     upper = np.sin(np.minimum(np.pi / 2, arcsin - c)) ** 2
             else:
