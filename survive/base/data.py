@@ -213,8 +213,6 @@ class SurvivalData(object):
         tables : pandas.DataFrame or list of pandas.DataFrames
             If a group is specified or there is only one group in the data, then
             this is a pandas.DataFrame with the following columns.
-                * time
-                    The distinct true event times for that group.
                 * at risk
                     Number of individuals at risk (i.e., entered but not yet
                     censored or failed) immediately before each distinct event
@@ -222,14 +220,16 @@ class SurvivalData(object):
                 * events
                     Number of failures/true events at each distinct event time
                     for that group.
-            If no group is specified and there is more than one group total,
-            then a list of such tables is returned (one for each group).
+            The index for this DataFrame is ``time``, listing the distinct event
+            times. If no group is specified and there is more than one group
+            total, then a list of such tables is returned (one for each group).
         """
         if group in self.groups:
             i = (self.groups == group).argmax()
-            return pd.DataFrame({"time": self.time[i],
-                                 "at risk": self.n_at_risk[i],
-                                 "events": self.n_events[i]})
+            columns = ("at risk", "events")
+            data = (self.n_at_risk[i], self.n_events[i])
+            return pd.DataFrame(dict(zip(columns, data)),
+                                index=pd.Index(self.time[i], name="time"))
         elif self.n_groups == 1:
             return self.table(group=self.groups[0])
         elif group is None:
