@@ -54,7 +54,7 @@ class TestKaplanMeier(unittest.TestCase):
         # an array. Calling ci() should return a pair of arrays.
         lower, upper = km.ci(data)
         for val in (km.predict(data), km.var(data), km.se(data), lower, upper):
-            self.assertIsInstance(val, np.ndarray)
+            self.assertIsInstance(val, pd.Series)
             self.assertEqual(val.shape, (len(data),))
 
         # Calling predict(), var(), se() with a scalar argument should return
@@ -108,7 +108,7 @@ class TestKaplanMeier(unittest.TestCase):
         # an array. Calling ci() should return a pair of arrays.
         lower, upper = km.ci(data)
         for val in (km.predict(data), km.var(data), km.se(data), lower, upper):
-            self.assertIsInstance(val, np.ndarray)
+            self.assertIsInstance(val, pd.Series)
             self.assertEqual(val.shape, (len(data),))
 
         # Calling predict(), var(), se() with a scalar argument should return
@@ -198,7 +198,7 @@ class TestKaplanMeier(unittest.TestCase):
             for val in (km.predict(data, group=group),
                         km.var(data, group=group), km.se(data, group=group),
                         lower, upper):
-                self.assertIsInstance(val, np.ndarray)
+                self.assertIsInstance(val, pd.Series)
                 self.assertEqual(val.shape, (len(data),))
 
         # Calling predict(), var(), se() with a scalar argument and a specified

@@ -85,9 +85,10 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        prob : float or numpy.ndarray
-            The survival function estimates. This is either a float or a
-            one-dimensional array depending on the shape of ``time``.
+        prob : float or pandas.Series
+            The survival function estimates.
+            This is either a float or a ``pandas.Series`` depending on the shape
+            of ``time``.
         """
         pass
 
@@ -104,9 +105,10 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        var : float or numpy.ndarray
-            The survival function variance estimates. This is either a float or
-            a one-dimensional array depending on the shape of ``time``.
+        var : float or pandas.Series
+            The survival function variance estimates.
+            This is either a float or a ``pandas.Series`` depending on the shape
+            of ``time``.
         """
         pass
 
@@ -123,11 +125,13 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        lower : float or numpy.ndarray
-            Confidence interval lower bounds. This is either a float or a
-            one-dimensional array depending on the shape of ``time``.
-        upper : float or numpy.ndarray
-            Confidence interval upper bounds. Same shape as ``lower``.
+        lower : float or pandas.Series
+            Confidence interval lower bounds.
+            This is either a float or a ``pandas.Series`` depending on the shape
+            of ``time``.
+        upper : float or pandas.Series
+            Confidence interval upper bounds.
+            Same shape as ``lower``.
         """
         pass
 
@@ -144,9 +148,10 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        quantile : float or numpy.ndarray
-            The quantile estimates. This is either a float or a one-dimensional
-            array depending on the shape of ``time``.
+        quantile : float or pandas.Series
+            The quantile estimates.
+            This is either a float or a ``pandas.Series`` depending on the shape
+            of ``time``.
         """
         pass
 
@@ -164,15 +169,15 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        prob : float or numpy.ndarray or pandas.DataFrame
+        prob : float or pandas.Series or pandas.DataFrame
             The survival function estimates.
             Possible shapes:
                 * If there is only one group in the model or if a group is
-                  specified, then this is either a float or a one-dimensional
-                  array depending on the shape of ``time``.
+                  specified, then this is either a float or a ``pandas.Series``
+                  depending on the shape of ``time``.
                 * If the model has more than one group and no group is
-                  specified, then this is a pandas.DataFrame with as many rows
-                  as entries in ``time`` and one column for each group.
+                  specified, then this is a ``pandas.DataFrame`` with as many
+                  rows as entries in ``time`` and one column for each group.
         """
         self.check_fitted()
         time = check_data_1d(time)
@@ -183,9 +188,9 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         elif self._data.n_groups == 1:
             return self._predict(time, 0)
         elif group is None:
-            prob = {group: self._predict(time, index)
-                    for index, group in enumerate(self._data.groups)}
-            return pd.DataFrame(prob, index=time).rename_axis("time")
+            prob_dict = {group: self._predict(time, index)
+                         for index, group in enumerate(self._data.groups)}
+            return pd.DataFrame(prob_dict, index=pd.Index(time, name="time"))
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -203,15 +208,15 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        var : float or numpy.ndarray or pandas.DataFrame
+        var : float or pandas.Series or pandas.DataFrame
             The survival function variance estimates.
             Possible shapes:
                 * If there is only one group in the model or if a group is
-                  specified, then this is either a float or a one-dimensional
-                  array depending on the shape of ``time``.
+                  specified, then this is either a float or a ``pandas.Series``
+                  depending on the shape of ``time``.
                 * If the model has more than one group and no group is
-                  specified, then this is a pandas.DataFrame with as many rows
-                  as entries in ``time`` and one column for each group.
+                  specified, then this is a ``pandas.DataFrame`` with as many
+                  rows as entries in ``time`` and one column for each group.
         """
         self.check_fitted()
         time = check_data_1d(time)
@@ -222,9 +227,9 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         elif self._data.n_groups == 1:
             return self._var(time, 0)
         elif group is None:
-            var = {group: self._var(time, index)
-                   for index, group in enumerate(self._data.groups)}
-            return pd.DataFrame(var, index=time).rename_axis("time")
+            var_dict = {group: self._var(time, index)
+                        for index, group in enumerate(self._data.groups)}
+            return pd.DataFrame(var_dict, index=pd.Series(time, name="time"))
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -242,15 +247,15 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        se : float or numpy.ndarray or pandas.DataFrame
+        se : float or pandas.Series or pandas.DataFrame
             The survival function standard error estimates.
             Possible shapes:
                 * If there is only one group in the model or if a group is
-                  specified, then this is either a float or a one-dimensional
-                  array depending on the shape of ``time``.
+                  specified, then this is either a float or a ``pandas.Series``
+                  depending on the shape of ``time``.
                 * If the model has more than one group and no group is
-                  specified, then this is a pandas.DataFrame with as many rows
-                  as entries in ``time`` and one column for each group.
+                  specified, then this is a ``pandas.DataFrame`` with as many
+                  rows as entries in ``time`` and one column for each group.
         """
         return np.sqrt(self.var(time, group=group))
 
@@ -268,38 +273,39 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        lower : float or one-dimensional numpy.ndarray or pandas.DataFrame
+        lower : float or pandas.Series or pandas.DataFrame
             Confidence interval lower bounds.
             Possible shapes:
                 * If there is only one group in the model or if a group is
-                  specified, then this is either a float or a one-dimensional
-                  array depending on the shape of ``time``.
+                  specified, then this is either a float or a
+                  ``pandas.Series`` depending on the shape of ``time``.
                 * If the model has more than one group and no group is
-                  specified, then this is a pandas.DataFrame with as many rows
-                  as entries in ``time`` and one column for each group.
-        upper : float or one-dimensional numpy.ndarray or pandas.DataFrame
-            Confidence interval lower bounds. Same shape as ``lower``.
+                  specified, then this is a ``pandas.DataFrame`` with as many
+                  rows as entries in ``time`` and one column for each group.
+        upper : float or pandas.Series or pandas.DataFrame
+            Confidence interval lower bounds.
+            Same shape as ``lower``.
         """
         self.check_fitted()
         time = check_data_1d(time)
 
         if group in self._data.groups:
-            index = (self._data.groups == group).argmax()
-            return self._ci(time, index)
+            i = (self._data.groups == group).argmax()
+            return self._ci(time, i)
         elif self._data.n_groups == 1:
             return self._ci(time, 0)
         elif group is None:
             lowers = np.empty(self._data.n_groups, dtype=object)
             uppers = np.empty(self._data.n_groups, dtype=object)
-            for index in range(self._data.n_groups):
-                lowers[index], uppers[index] = self._ci(time, index)
-            lower = pd.DataFrame({group: lower for group, lower
-                                  in zip(self._data.groups, lowers)},
-                                 index=time).rename_axis("time")
-            upper = pd.DataFrame({group: upper for group, upper
-                                  in zip(self._data.groups, uppers)},
-                                 index=time).rename_axis("time")
-            return lower, upper
+            for i in range(self._data.n_groups):
+                lowers[i], uppers[i] = self._ci(time, i)
+            lower_dict = {group: lower for group, lower
+                          in zip(self._data.groups, lowers)}
+            upper_dict = {group: upper for group, upper
+                          in zip(self._data.groups, uppers)}
+            index = pd.Index(time, name="time")
+            return (pd.DataFrame(lower_dict, index=index),
+                    pd.DataFrame(upper_dict, index=index))
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -335,15 +341,15 @@ class UnivariateSurvival(Model, Fittable, Predictor):
 
         Returns
         -------
-        quantiles : float or numpy.ndarray or pandas.DataFrame
+        quantiles : float or pandas.Series or pandas.DataFrame
             The quantile estimates.
             Possible shapes:
                 * If there is only one group in the model or if a group is
-                  specified, then this is either a float or a one-dimensional
-                  array depending on the shape of ``time``.
+                  specified, then this is either a float or a ``pandas.Series``
+                  depending on the shape of ``prob``.
                 * If the model has more than one group and no group is
-                  specified, then this is a pandas.DataFrame with as many rows
-                  as entries in ``time`` and one column for each group.
+                  specified, then this is a ``pandas.DataFrame`` with as many
+                  rows as entries in ``prob`` and one column for each group.
             Entries for probability levels for which the quantile estimate is
             not defined are nan (not a number).
 
@@ -365,10 +371,9 @@ class UnivariateSurvival(Model, Fittable, Predictor):
         elif self._data.n_groups == 1:
             return self._quantile(prob, 0)
         elif group is None:
-            return pd.DataFrame({group: self._quantile(prob, index)
-                                 for index, group
-                                 in enumerate(self._data.groups)},
-                                index=prob).rename_axis("prob.")
+            q_dict = {group: self._quantile(prob, index) for index, group
+                      in enumerate(self._data.groups)}
+            return pd.DataFrame(q_dict, index=pd.Index(prob, name="prob"))
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
@@ -450,21 +455,30 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         """See superclass docstring."""
         ind = np.searchsorted(self._data.time[index], time, side="right")
         prob = np.concatenate(([1.], self._survival[index]))[ind]
-        return prob.item() if prob.size == 1 else prob
+        return (prob.item() if prob.size == 1 else
+                pd.Series(prob, index=pd.Index(time, name="time"),
+                          name=self._data.groups[index]))
 
     def _var(self, time, index):
         """See superclass docstring."""
         ind = np.searchsorted(self._data.time[index], time, side="right")
         var = np.concatenate(([0.], self._survival_var[index]))[ind]
-        return var.item() if var.size == 1 else var
+        return (var.item() if var.size == 1
+                else pd.Series(var, index=pd.Index(time, name="time"),
+                               name=self._data.groups[index]))
 
     def _ci(self, time, index):
         """See superclass docstring."""
         ind = np.searchsorted(self._data.time[index], time, side="right")
         lower = np.concatenate(([1.], self._survival_ci_lower[index]))[ind]
         upper = np.concatenate(([1.], self._survival_ci_upper[index]))[ind]
-        return (lower.item() if lower.size == 1 else lower,
-                upper.item() if upper.size == 1 else upper)
+        lower = (lower.item() if lower.size == 1
+                 else pd.Series(lower, index=pd.Index(time, name="time"),
+                                name=self._data.groups[index]))
+        upper = (upper.item() if upper.size == 1
+                 else pd.Series(upper, index=pd.Index(time, name="time"),
+                                name=self._data.groups[index]))
+        return lower, upper
 
     def _quantile(self, prob, index):
         """See superclass docstring."""
@@ -483,7 +497,9 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
         quantiles[prob < self._quantile_tol] = np.min(self.data.sample.entry)
         quantiles[prob > cdf[-1] + self._quantile_tol] = np.nan
 
-        return quantiles.item() if quantiles.size == 1 else quantiles
+        return (quantiles.item() if quantiles.size == 1
+                else pd.Series(quantiles, index=pd.Index(prob, name="prob"),
+                               name=self._data.groups[index]))
 
     def plot(self, *groups, ci=True, ci_kwargs=None, mark_censor=True,
              mark_censor_kwargs=None, legend=True, legend_kwargs=None,
@@ -605,7 +621,7 @@ class NonparametricUnivariateSurvival(UnivariateSurvival):
             # Mark the censored times
             if mark_censor and self._data.censor[i].shape[0] != 0:
                 c = p[0].get_color()
-                marker_params = dict(marker="+", color=c, zorder=3)
+                marker_params = dict(marker="+", color=c, zorder=3, label=None)
                 if mark_censor_kwargs is not None:
                     marker_params.update(mark_censor_kwargs)
                 xx = self._data.censor[i]
@@ -726,5 +742,5 @@ class UnivariateSurvivalSummary(Summary):
             if self.model.data.n_groups > 1:
                 summary += f"\n\n{group}"
             summary += f"\n\n{describe.loc[[group]].to_string(index=False)}"
-            summary += f"\n\n{self.table(group).to_string(index=False)}"
+            summary += f"\n\n{self.table(group).to_string(justify='right')}"
         return summary
