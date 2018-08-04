@@ -3,110 +3,72 @@
 import numpy as np
 import pandas as pd
 
-from survive.utils import check_data_1d
+from ..utils import check_data_1d, check_colors
 
 
 class SurvivalData(object):
-    """Class representing right-censored survival/lifetime data.
+    """Class representing right-censored and left-truncated survival data.
 
     Properties
     ----------
-    sample : pandas.DataFrame
-        A DataFrame containing the sample used to initialize this object.
-        Columns:
-            * time
-                Each observed time (censored or not).
-            * status
-                Right-censoring indicators for each observed time. 0 indicates
-                censoring, 1 indicates an event.
-            * entry
-                Entry times of the observations (for left truncation).
-            * group
-                Label for each observation's group/stratum within the sample.
-    groups : numpy.ndarray
+    time : numpy.ndarray
+        Each observed time.
+    status : numpy.ndarray
+        Event indicators for each observed time. 1 indicates an event, 0
+        indicates censoring.
+    entry : numpy.ndarray
+        Entry times of the observations (for left truncation).
+    group : numpy.ndarray
+        Label for each observation's group/stratum within the sample.
+    group_labels : numpy.ndarray
         List of the distinct groups in the sample.
     n_groups : int
         The number of distinct groups in the sample.
-    time : numpy.ndarray of dtype object
-        List of one-dimensional arrays, one for each group. Each array consists
-        of the distinct event times (not censored) within that group.
-    censor : numpy.ndarray of dtype object
-        List of one-dimensional arrays, one for each group. Each array consists
-        of the distinct times at which censoring occurred within that group.
-    n_at_risk : numpy.ndarray of dtype object
-        List of one-dimensional arrays, one for each group. Each array consists
-        of the the size of the risk set (i.e., the number of individuals who
-        have entered but have not yet experienced censoring or an event)
-        immediately prior to each event time within that group.
-    n_events : numpy.ndarray of dtype object
-        List of one-dimensional arrays, one for each group. Each array consists
-        of the the number of events occurring at each event time within that
-        group.
-    counts : pandas.DataFrame
-        DataFrame containing the total number of observations, the number of
-        true events, and the number of censored observations within each group.
-        Columns:
-            * observations
-                The number of observations.
-            * events
-                The number of true events/failures.
-            * censored
-                The number of censored observations.
-        Indices:
-            The distinct group labels.
     """
-    sample: pd.DataFrame
-    groups: np.ndarray
-    n_groups: int
-    time: np.ndarray
-    censor: np.ndarray
-    n_at_risk: np.ndarray
-    n_events: np.ndarray
-    counts: pd.DataFrame
 
-    def __init__(self, time, *, status=None, entry=None, group=None, data=None):
+    def __init__(self, time, *, status=None, entry=None, group=None, df=None):
         """Initialize a SurvivalData object.
 
         Parameters
         ----------
         time : one-dimensional array-like or str
-            The observed times. If the DataFrame parameter `data` is provided,
-            this can be the name of a column in `data` from which to get the
+            The observed times. If the DataFrame parameter ``df`` is provided,
+            this can be the name of a column in ``df`` from which to get the
             observed times.
-        status : one-dimensional array-like or string, optional (default: None)
+        status : one-dimensional array-like or str, optional (default: None)
             Censoring indicators. 0 means a right-censored observation, 1 means
             a true failure/event. If not provided, it is assumed that there is
-            no censoring.  If the DataFrame parameter `data` is provided,
-            this can be the name of a column in `data` from which to get the
+            no censoring.  If the DataFrame parameter ``df`` is provided,
+            this can be the name of a column in ``df`` from which to get the
             censoring indicators.
-        entry : one-dimensional array-like or string, optional (default: None)
+        entry : one-dimensional array-like or str, optional (default: None)
             Entry/birth times of the observations (for left-truncated data). If
             not provided, the entry time for each observation is set to 0. If
-            the DataFrame parameter `data` is provided, this can be the name of
-            a column in `data` from which to get the entry times.
+            the DataFrame parameter ``df`` is provided, this can be the name of
+            a column in ``df`` from which to get the entry times.
         group : one-dimensional array-like or string, optional (default: None)
             Group/stratum labels for each observation. If not provided, the
             entire sample is taken as a single group. If the DataFrame parameter
-            `data` is provided, this can be the name of a column in `data` from
+            ``df`` is provided, this can be the name of a column in ``df`` from
             which to get the group labels.
-        data : pandas.DataFrame, optional (default: None)
+        df : pandas.DataFrame, optional (default: None)
             Optional DataFrame from which to extract the data. If this parameter
-            is specified, then the parameters `time`, `status`, `entry`, and
-            `group` can be column names of this DataFrame.
+            is specified, then the parameters ``time``, ``status``, ``entry``,
+            and ``group`` can be column names of this DataFrame.
         """
-        if data is not None:
-            # In this case `data` must be a DataFrame
-            if not isinstance(data, pd.DataFrame):
-                raise TypeError("Parameter 'data' must be a pandas DataFrame.")
+        if df is not None:
+            # In this case df must be a DataFrame
+            if not isinstance(df, pd.DataFrame):
+                raise TypeError("Parameter 'df' must be a pandas DataFrame.")
 
             # Try to extract all the necessary information from the DataFrame
-            time = _check_df_column(data, time)
-            status = _check_df_column(data, status)
-            entry = _check_df_column(data, entry)
-            group = _check_df_column(data, group)
+            time = _check_df_column(df, time)
+            status = _check_df_column(df, status)
+            entry = _check_df_column(df, entry)
+            group = _check_df_column(df, group)
 
         # Validate observed times
-        time = check_data_1d(time)
+        time = check_data_1d(time, keep_pandas=False)
         if any(t < 0 for t in time):
             raise ValueError("Entries of 'time' must be non-negative.")
 
@@ -114,7 +76,8 @@ class SurvivalData(object):
         if status is None:
             status = np.ones(time.shape[0], dtype=np.int_)
         else:
-            status = check_data_1d(status, n_exact=time.shape[0], dtype=np.int_)
+            status = check_data_1d(status, n_exact=time.shape[0],
+                                   keep_pandas=False, dtype=np.int_)
             if any(e not in (0, 1) for e in status):
                 raise ValueError("Entries of 'status' must be 0 or 1.")
 
@@ -123,170 +86,396 @@ class SurvivalData(object):
             entry = np.zeros(time.shape[0], dtype=time.dtype)
         else:
             entry = check_data_1d(entry, n_exact=time.shape[0],
-                                  dtype=time.dtype)
-            if not all(0 <= t0 <= t for t0, t in zip(entry, time)):
-                raise ValueError(
-                    "Entries of 'entry' must be non-negative and at most as "
-                    "large as the corresponding entries of 'time'.")
+                                  keep_pandas=False, dtype=time.dtype)
 
         # Validate group labels
         if group is None:
             group = np.zeros(time.shape[0], dtype=np.int_)
         else:
-            group = check_data_1d(group, numeric=False, n_exact=time.shape[0])
+            group = check_data_1d(group, numeric=False, n_exact=time.shape[0],
+                                  keep_pandas=False)
 
-        # Sort the times in increasing order, putting failures before censored
-        # times in the case of ties
-        ind = np.lexsort((1 - status, time), axis=0)
+        # Remove data where entry is later than the observed time (should this
+        # raise a warning?)
+        ind = (time >= entry)
         time = time[ind]
         status = status[ind]
         entry = entry[ind]
         group = group[ind]
 
-        # Put the initializer parameters into a DataFrame
-        self.sample = pd.DataFrame(dict(time=time, status=status, entry=entry,
-                                        group=group))
+        # Sort the times in increasing order, putting failures before censored
+        # times in the case of ties. This is because we assume that censored
+        # individuals do not die immediately after being censored.
+        ind = np.lexsort((1 - status, time), axis=0)
+        self.time = time[ind]
+        self.status = status[ind]
+        self.entry = entry[ind]
+        self.group = group[ind]
 
-        # Get distinct groups
-        self.groups = np.unique(group)
-        self.n_groups = self.groups.shape[0]
+        self.group_labels = np.unique(self.group)
+        self.n_groups = self.group_labels.shape[0]
 
-        # Compute survival quantities within each group and the rows of the
-        # counts DataFrame
-        self.time = np.empty(self.n_groups, dtype=object)
-        self.censor = np.empty(self.n_groups, dtype=object)
-        self.n_at_risk = np.empty(self.n_groups, dtype=object)
-        self.n_events = np.empty(self.n_groups, dtype=object)
-        rows = []
-        for i, g in enumerate(self.groups):
-            # Focus on one group at a time
-            ind_g = (group == g)
-            time_g = time[ind_g]
-            status_g = status[ind_g]
-            entry_g = entry[ind_g]
-
-            # Get indices of true failures and censored observations
-            ind_event = (status_g == 1)
-            ind_censor = ~ind_event
-
-            # Compute the current row of the counts DataFrame
-            rows.append([time_g.shape[0], np.sum(ind_event),
-                         np.sum(ind_censor)])
-
-            # Distinct true event times and number of failures at such times
-            self.time[i], self.n_events[i] \
-                = np.unique(time_g[ind_event], return_counts=True)
-
-            # Distinct censored observation times
-            self.censor[i] = np.unique(time_g[ind_censor])
-
-            # k = number of distinct observed times
-            k = self.time[i].shape[0]
-
-            # Number of individuals at risk immediately before each event time
-            self.n_at_risk[i] = np.empty(shape=k, dtype=np.int_)
-            for j in range(k):
-                t = self.time[i][j]
-                self.n_at_risk[i][j] = np.sum((entry_g < t) & (t <= time_g))
-
-        # Put together the counts DataFrame
-        columns = ("observations", "events", "censored")
-        self.counts = pd.DataFrame(rows, columns=columns, index=self.groups)
-
-    def __str__(self):
-        """Short summary of the observation counts within each group."""
-        return self.counts.to_string(index=(self.n_groups > 1))
-
-    def table(self, group=None):
-        """Get survival tables within groups.
+    def to_string(self, group=None, max_line_length=None, separator=None,
+                  censor_marker=None):
+        """Get a string representation of the survival data within each group.
 
         Parameters
         ----------
         group : group label, optional (default: None)
-            Specify the group whose survival table should be returned. Ignored
-            if there is only one group. If not specified, a list of the survival
-            tables for all the groups is returned (if there is only one group,
-            then a single table is returned).
+            Specify a single group to represent. If no group is specified, then
+            the entire sample is treated as one group.
+        max_line_length : int, optional (default: None)
+            Specify the maximum length of a single line.
+        separator : str, optional (default: None)
+            Specify how to separate individual times.
+        censor_marker : str, optional (default: None)
+            String to mark censored times.
 
         Returns
         -------
-        tables : pandas.DataFrame or list of pandas.DataFrames
-            If a group is specified or there is only one group in the data, then
-            this is a pandas.DataFrame with the following columns.
-                * at risk
-                    Number of individuals at risk (i.e., entered but not yet
-                    censored or failed) immediately before each distinct event
-                    time for that group.
-                * events
-                    Number of failures/true events at each distinct event time
-                    for that group.
-            The index for this DataFrame is ``time``, listing the distinct event
-            times. If no group is specified and there is more than one group
-            total, then a list of such tables is returned (one for each group).
+        string : str or list of strings
+            String representation of the observed survival times within a group
+            or within each group.
         """
-        if group in self.groups:
-            i = (self.groups == group).argmax()
-            columns = ("at risk", "events")
-            data = (self.n_at_risk[i], self.n_events[i])
-            return pd.DataFrame(dict(zip(columns, data)),
-                                index=pd.Index(self.time[i], name="time"))
-        elif self.n_groups == 1:
-            return self.table(group=self.groups[0])
+        # Get either times and censoring indicators for a single group or for
+        # the whole sample
+        if group in self.group_labels:
+            mask = (self.group == group)
+            time = self.time[mask]
+            status = self.status[mask]
         elif group is None:
-            return [self.table(group=g) for g in self.groups]
+            time = self.time
+            status = self.status
         else:
             raise ValueError(f"Not a known group label: {group}.")
 
-    def at_risk(self, time, group=None):
-        """The number of individuals at risk (i.e., entered but yet to undergo a
-        true event or censoring) at the given times.
+        # Default formatting options
+        if max_line_length is None:
+            max_line_length = 80
+        if separator is None:
+            separator = " "
+        if censor_marker is None:
+            censor_marker = "+"
+
+        # Pad event times with spaces on the right so that the event and
+        # censored times line up
+        event_marker = " " * len(censor_marker)
+
+        # Each observed time as a string together with censoring markers
+        if np.any(status == 0):
+            # There is censoring so censoring markers are needed
+            time_str = [str(t) + (event_marker if d else censor_marker)
+                        for t, d in zip(time, status)]
+        else:
+            # There is no censoring so censoring markers are not needed
+            time_str = list(map(str, time))
+
+        # Padding for each time
+        pad = max(map(len, time_str))
+
+        this_line_length = 0
+        string = ""
+        for i, t in enumerate(time_str):
+            this_string = f"{t:>{pad}}"
+            if i > 0:
+                if this_line_length + len(this_string) >= max_line_length:
+                    # Start a new line
+                    string += separator.rstrip() + "\n"
+                    this_line_length = 0
+                else:
+                    # Continue current line
+                    string += separator
+                    this_line_length += len(separator)
+            string += this_string
+            this_line_length += len(this_string)
+
+        return string
+
+    def __repr__(self):
+        """Get a string representation of all the survival data."""
+        survival_repr = ""
+        for i, group in enumerate(self.group_labels):
+            if i > 0:
+                survival_repr += "\n\n"
+            if self.n_groups > 1:
+                survival_repr += f"{group}\n\n"
+            survival_repr += self.to_string(group=group)
+
+        return survival_repr
+
+    def n_at_risk(self, time):
+        """Get the number of individuals at risk (i.e., entered but yet to
+        undergo an event or censoring) at the given times.
 
         Parameters
         ----------
         time : float or array-like
             Times at which to report the risk set sizes.
-        group : group label, optional (default: None)
-            Specify the group whose risk set size is desired. If None, risk set
-            sizes for all the groups are returned.
 
         Returns
         -------
-        at_risk : int or numpy.ndarray or pandas.DataFrame
-            Number of individuals at risk at the given times.
-            Possible shapes:
-                * If there is only one group in the model or if a group is
-                  specified, then this is either an int or a one-dimensional
-                  array depending on the shape of ``time``.
-                * If the model has more than one group and no group is
-                  specified, then this is a pandas.DataFrame with as many rows
-                  as entries in ``time`` and one column for each group.
+        n_at_risk : pandas.DataFrame
+            Number of individuals at risk at the given times within each group.
+            The rows are indexed by the times in ``time``, and the columns are
+            indexed by group.
         """
+        # Validate array of times
         time = check_data_1d(time)
 
-        if group in self.groups:
-            ind = (self.sample.group == group)
-            entry = np.asarray(self.sample.entry[ind])
-            final = np.asarray(self.sample.time[ind])
-            at_risk = np.empty(len(time), dtype=np.int_)
-            for j, t in enumerate(time):
-                at_risk[j] = np.sum((entry < t) & (t <= final))
-            return at_risk.item() if at_risk.size == 1 else at_risk
-        elif self.n_groups == 1:
-            return self.at_risk(time, group=self.groups[0])
-        elif group is None:
-            return pd.DataFrame({group: self.at_risk(time, group=group)
-                                 for group in self.groups},
-                                index=time).rename_axis("time")
+        # Compute the risk set sizes at the given times within each group
+        n_at_risk = np.empty(shape=(len(time), self.n_groups), dtype=np.int_)
+        for col, group in enumerate(self.group_labels):
+            mask = (self.group == group)
+            # t0 = entry time, t1 = exit time
+            t0 = self.entry[mask]
+            t1 = self.time[mask]
+            for row, t in enumerate(time):
+                # An individual is "at risk" at time t if their entry time t0 is
+                # at or before t and their exit time t1 is at or after t
+                n_at_risk[row, col] = np.sum((t0 <= t) & (t <= t1))
+
+        columns = pd.Index(self.group_labels, name="group")
+        index = pd.Index(time, name="time")
+        return pd.DataFrame(n_at_risk, columns=columns, index=index)
+
+    def n_events(self, time):
+        """Get the number of events at the given times.
+
+        Parameters
+        ----------
+        time : float or array-like
+            Times at which to report the risk set sizes.
+
+        Returns
+        -------
+        n_events : pandas.DataFrame
+            Number of events at the given times within each group. The rows are
+            indexed by the times in ``time``, and the columns are indexed by
+            group.
+        """
+        # Validate array of times
+        time = check_data_1d(time)
+
+        # Initialize array of event counts (to be converted to a DataFrame
+        # later)
+        n_events = np.empty(shape=(len(time), self.n_groups), dtype=np.int_)
+
+        # Compute the event counts at the given times within each group
+        mask = (self.status == 1)
+        for col, group in enumerate(self.group_labels):
+            event_time = self.time[mask & (self.group == group)]
+            for row, t in enumerate(time):
+                n_events[row, col] = np.sum(event_time == t)
+
+        columns = pd.Index(self.group_labels, name="group")
+        index = pd.Index(time, name="time")
+        return pd.DataFrame(n_events, columns=columns, index=index)
+
+    def plot_lifetimes(self, legend=True, legend_kwargs=None, colors=None,
+                       palette=None, ax=None, **kwargs):
+        """Plot the observed survival times.
+
+        Parameters
+        ----------
+        legend : bool, optional (default: True)
+            Indicates whether to display a legend for the plot.
+        legend_kwargs : dict, optional (default: None)
+            Keyword parameters to pass to legend().
+        colors : list or tuple or dict or str, optional (default: None)
+            Colors for each group. This is ignored if ``palette`` is provided.
+            Possible types:
+                * list or tuple
+                    Sequence of valid matplotlib colors to cycle through.
+                * dict
+                    Should be a dictionary with groups as keys and valid
+                    matplotlib colors as values.
+                * str
+                    Name of a matplotlib colormap.
+        palette : str, optional (default: None)
+            Name of a seaborn color palette. Requires seaborn to be installed.
+            Setting a color palette overrides the ``colors`` parameter.
+        ax : matplotlib.axes.Axes, optional (default: None)
+            The axes on which to plot. If this is not specified, the current
+            axis will be used.
+        **kwargs : keyword arguments
+            Additional keyword arguments to pass to the plot() function.
+
+        Returns
+        -------
+        The matplotlib.axes.Axes on which the plot was drawn.
+        """
+        # Validate colors
+        colors = check_colors(colors, n_colors=len(self.group_labels),
+                              keys=self.group_labels, palette=palette)
+
+        # Sort data by group, then by entry, then by observed time, putting
+        # events before censored times
+        ind = np.lexsort((1 - self.status, self.time, self.entry, self.group),
+                         axis=0)
+        time = self.time[ind]
+        status = self.status[ind]
+        entry = self.entry[ind]
+        group = self.group[ind]
+
+        # Get current axes if axes are not specified
+        if ax is None:
+            import matplotlib.pyplot as plt
+            ax = plt.gca()
+
+        colors = dict(zip(self.group_labels, colors))
+
+        # Plot the data
+        groups_seen = set()
+        for i, (t0, t1, d, g) in enumerate(zip(entry, time, status, group)):
+            # Parameters for the plot
+            color = colors[g]
+            params = dict()
+            if color is not None:
+                params["color"] = color
+            if g not in groups_seen:
+                params["label"] = str(g)
+                groups_seen.add(g)
+            params.update(kwargs)
+
+            p = ax.plot([t0, t1], [i, i], **params)
+            if d == 0:
+                ax.plot(t1, i, marker="o", markersize=5, color=p[0].get_color())
+
+            if color is None:
+                colors[g] = p[0].get_color()
+
+        # Configure axes
+        ax.set(xlabel="time")
+        x_min, _ = ax.get_xlim()
+        y_offset = 2
+        ax.set(xlim=(max(x_min, 0), None))
+        ax.set(ylim=(-y_offset, time.shape[0] + y_offset - 1))
+        ax.get_yaxis().set_visible(False)
+
+        # Display the legend
+        if legend:
+            legend_params = dict(loc="best", frameon=True, shadow=True)
+            if legend_kwargs is not None:
+                legend_params.update(legend_kwargs)
+            ax.legend(**legend_params)
+
+        return ax
+
+    def plot_at_risk(self, legend=True, legend_kwargs=None, colors=None,
+                     palette=None, ax=None, **kwargs):
+        """Plot the at-risk process.
+
+        Parameters
+        ----------
+        legend : bool, optional (default: True)
+            Indicates whether to display a legend for the plot.
+        legend_kwargs : dict, optional (default: None)
+            Keyword parameters to pass to legend().
+        colors : list or tuple or dict or str, optional (default: None)
+            Colors for each group. This is ignored if ``palette`` is provided.
+            Possible types:
+                * list or tuple
+                    Sequence of valid matplotlib colors to cycle through.
+                * dict
+                    Should be a dictionary with groups as keys and valid
+                    matplotlib colors as values.
+                * str
+                    Name of a matplotlib colormap.
+        palette : str, optional (default: None)
+            Name of a seaborn color palette. Requires seaborn to be installed.
+            Setting a color palette overrides the ``colors`` parameter.
+        ax : matplotlib.axes.Axes, optional (default: None)
+            The axes on which to plot. If this is not specified, the current
+            axis will be used.
+        **kwargs : keyword arguments
+            Additional keyword arguments to pass to step() when plotting.
+
+        Returns
+        -------
+        The matplotlib.axes.Axes on which the plot was drawn.
+        """
+        # If there is left truncation, include entry times
+        if np.any(self.entry > 0):
+            time = np.unique(np.concatenate((self.time, self.entry)))
         else:
-            raise ValueError(f"Not a known group label: {group}.")
+            time = np.unique(self.time)
+        y = self.n_at_risk(time)
+
+        colors = check_colors(colors, n_colors=len(self.group_labels),
+                              keys=self.group_labels, palette=palette)
+
+        # Get current axes if axes are not specified
+        if ax is None:
+            import matplotlib.pyplot as plt
+            ax = plt.gca()
+
+        # Plot the at-risk counts
+        for group in self.group_labels:
+            # Parameters for the plot
+            color = next(colors)
+            label = f"{group}"
+            params = dict(where="post", label=label)
+            if color is not None:
+                params["color"] = color
+            params.update(kwargs)
+
+            # Plot this group's survival curve
+            ax.step(time, y[group], **params)
+
+        # Configure axes
+        ax.set(xlabel="time", ylabel="number at risk")
+        ax.autoscale(enable=True, axis="x")
+        x_min, _ = ax.get_xlim()
+        y_min, _ = ax.get_ylim()
+        ax.set(xlim=(max(x_min, 0), None), ylim=(min(y_min, 0), None))
+
+        # Display the legend
+        if legend:
+            legend_params = dict(loc="best", frameon=True, shadow=True)
+            if legend_kwargs is not None:
+                legend_params.update(legend_kwargs)
+            ax.legend(**legend_params)
+
+        return ax
+
+    @property
+    def describe(self):
+        """Get a DataFrame with descriptive statistics about the survival data.
+
+        Returns
+        -------
+        describe : pandas.DataFrame
+            A DataFrame with a row for every group. The columns are
+                * total
+                    The total number of observations within a group
+                * events
+                    The number of events within a group
+                * censored
+                    The number of censored events within a group
+        """
+        total = np.empty(self.n_groups, dtype=np.int_)
+        events = np.empty(self.n_groups, dtype=np.int_)
+
+        for i, group in enumerate(self.group_labels):
+            mask = (self.group == group)
+            total[i] = np.sum(mask)
+            events[i] = np.sum(mask & (self.status == 1))
+
+        censored = total - events
+
+        columns = ["total", "events", "censored"]
+        index = pd.Index(self.group_labels, name="group")
+        describe_dict = dict(zip(columns, (total, events, censored)))
+        return pd.DataFrame(describe_dict, index=index)
 
 
-def _check_df_column(data: pd.DataFrame, name):
-    """Check if `name` is the name of a column in a DataFrame `data`. If it is,
-    return the column. Otherwise, return `name` unchanged."""
+def _check_df_column(df: pd.DataFrame, name):
+    """Check if ``name`` is the name of a column in a DataFrame ``df``.
+    If it is, return the column. Otherwise, return ``name`` unchanged.
+    """
     if isinstance(name, str):
-        if name in data.columns:
-            return data[name]
+        if name in df.columns:
+            return df[name]
         else:
             raise ValueError(f"Column '{name}' not found in DataFrame.")
     else:
