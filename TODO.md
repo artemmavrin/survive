@@ -21,3 +21,8 @@
 - [ ] Cox model
 - [ ] Elastic net for the Cox model
 - [ ] Aalen's additive regression model
+
+## Other
+
+- [ ] Survival trees and ensembles
+- [ ] Competing risks
