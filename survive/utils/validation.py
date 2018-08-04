@@ -1,5 +1,6 @@
 """Functions for validating function arguments."""
 
+import itertools
 import numbers
 
 import numpy as np
@@ -374,3 +375,66 @@ def check_random_state(random_state):
         return random_state
     else:
         return np.random.RandomState(random_state)
+
+
+def check_colors(colors, *, n_colors=None, keys=None, palette=None):
+    """Validate colors for plotting.
+
+    Parameters
+    ----------
+    colors : list or tuple or dict or str, optional (default: None)
+        Colors for each group. This is ignored if ``palette`` is provided.
+        Possible types:
+            * list or tuple
+                Sequence of valid matplotlib colors to cycle through.
+            * dict
+                If parameter ``keys`` is not None, this should be a mapping from
+                the keys in ``keys`` to valid matplotlib colors.
+            * str
+                Name of a matplotlib colormap. The parameter ``n_colors`` must
+                be provided in this case to specify how many colors to generate.
+    n_colors : int, optional (default: None)
+        Specify the number of colors to generate.
+    keys : sequence, optional
+        List of all keys that must be present in ``colors`` if it is a dict.
+    palette : str, optional (default: None)
+        Name of a seaborn color palette. Requires seaborn to be installed.
+        Setting a color palette overrides the ``colors`` parameter.
+
+    Returns
+    -------
+    colors : iterable
+        Iterable of colors to cycle through.
+    """
+    n_colors = check_int(n_colors, minimum=1, allow_none=True)
+
+    if palette is not None:
+        try:
+            import seaborn as sns
+        except ImportError:
+            raise RuntimeError("The use of the 'palette' parameter "
+                               "requires seaborn to be installed.")
+        colors = iter(sns.color_palette(palette, n_colors=n_colors))
+    elif isinstance(colors, list) or isinstance(colors, tuple):
+        colors = itertools.cycle(colors)
+    elif isinstance(colors, dict):
+        if keys is None:
+            raise ValueError("Keys for the color dictionary are not specified.")
+        for key in keys:
+            if key not in colors:
+                raise ValueError(f"Expected key '{key}' in dict 'colors'.")
+        colors_copy = colors.copy()
+        colors = (colors_copy[key] for key in keys)
+    elif isinstance(colors, str):
+        import matplotlib.pyplot as plt
+        colormap = plt.get_cmap(colors)
+        if n_colors is not None:
+            colors = iter(colormap(np.linspace(0., 1., n_colors)))
+        else:
+            raise ValueError("Number of colors unspecified.")
+    elif colors is None:
+        colors = itertools.repeat(None)
+    else:
+        raise ValueError(f"Invalid value for parameter 'colors': {colors}.")
+
+    return colors
