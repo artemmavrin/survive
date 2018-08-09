@@ -19,21 +19,66 @@ _DEFAULT_FORMATTING = dict(max_line_length=_MAX_LINE_LENGTH,
 class SurvivalData(object):
     """Class representing right-censored and left-truncated survival data.
 
-    Properties
+    Parameters
+    ----------
+    time : one-dimensional array-like or str
+        The observed times. If the DataFrame parameter `df` is provided, this
+        can be the name of a column in `df` from which to get the observed
+        times.
+
+    status : one-dimensional array-like or str, optional
+        Censoring indicators. 0 means a right-censored observation, 1 means a
+        true failure/event. If not provided, it is assumed that there is no
+        censoring.  If the DataFrame parameter `df` is provided, this can be
+        the name of a column in `df` from which to get the censoring indicators.
+
+    entry : one-dimensional array-like or str, optional
+        Entry/birth times of the observations (for left-truncated data). If not
+        provided, the entry time for each observation is set to 0. If the
+        DataFrame parameter `df` is provided, this can be the name of a column
+        in `df` from which to get the entry times.
+
+    group : one-dimensional array-like or string, optional
+        Group/stratum labels for each observation. If not provided, the entire
+        sample is taken as a single group. If the DataFrame parameter `df`
+        is provided, this can be the name of a column in `df` from which to
+        get the group labels.
+
+    df : pandas.DataFrame, optional
+        Optional DataFrame from which to extract the data. If this parameter is
+        specified, then the parameters `time`, `status`, `entry`, and `group`
+        can be column names of this DataFrame.
+
+    min_time : numeric, optional
+        The minimum observed time to consider part of the sample. This is for
+        conditional inference. Observations with later observed event or
+        censoring times are ignored. If not provided, all observations are used.
+
+    warn : bool, optional
+        Indicates whether any warnings should be raised or ignored (e.g., if an
+        individual's entry time is later than that individual's event time).
+
+    Attributes
     ----------
     time : numpy.ndarray
         Each observed time.
+
     status : numpy.ndarray
         Event indicators for each observed time. 1 indicates an event, 0
         indicates censoring.
+
     entry : numpy.ndarray
         Entry times of the observations (for left truncation).
+
     group : numpy.ndarray
         Label for each observation's group/stratum within the sample.
+
     group_labels : numpy.ndarray
         List of the distinct groups in the sample.
+
     n_groups : int
         The number of distinct groups in the sample.
+
     events : dict
         Mapping of group labels to DataFrames with columns:
             * time
@@ -42,7 +87,8 @@ class SurvivalData(object):
                 Number of events at each event time.
             * n_at_risk
                 Number of individuals at risk at each event time.
-    censor : list
+
+    censor : dict
         Mapping of group labels to DataFrames with columns:
             * time
                 Distinct censored times for that group
@@ -66,44 +112,6 @@ class SurvivalData(object):
 
     def __init__(self, time, *, status=None, entry=None, group=None, df=None,
                  min_time=None, warn=True):
-        """Initialize a SurvivalData object.
-
-        Parameters
-        ----------
-        time : one-dimensional array-like or str
-            The observed times. If the DataFrame parameter ``df`` is provided,
-            this can be the name of a column in ``df`` from which to get the
-            observed times.
-        status : one-dimensional array-like or str, optional (default: None)
-            Censoring indicators. 0 means a right-censored observation, 1 means
-            a true failure/event. If not provided, it is assumed that there is
-            no censoring.  If the DataFrame parameter ``df`` is provided,
-            this can be the name of a column in ``df`` from which to get the
-            censoring indicators.
-        entry : one-dimensional array-like or str, optional (default: None)
-            Entry/birth times of the observations (for left-truncated data). If
-            not provided, the entry time for each observation is set to 0. If
-            the DataFrame parameter ``df`` is provided, this can be the name of
-            a column in ``df`` from which to get the entry times.
-        group : one-dimensional array-like or string, optional (default: None)
-            Group/stratum labels for each observation. If not provided, the
-            entire sample is taken as a single group. If the DataFrame parameter
-            ``df`` is provided, this can be the name of a column in ``df`` from
-            which to get the group labels.
-        df : pandas.DataFrame, optional (default: None)
-            Optional DataFrame from which to extract the data. If this parameter
-            is specified, then the parameters ``time``, ``status``, ``entry``,
-            and ``group`` can be column names of this DataFrame.
-        min_time : numeric, optional (default: None)
-            The minimum observed time to consider part of the sample. This is
-            for conditional inference. Observations with later observed event or
-            censoring times are ignored. If not provided, all observations are
-            used.
-        warn : bool, optional (default: True)
-            Indicates whether any warnings should be raised or ignored (e.g., if
-            an individual's entry time is later than that individual's event
-            time).
-        """
         # Validate parameters
         warn = check_bool(warn)
         min_time = check_float(min_time, allow_none=True)
@@ -240,19 +248,22 @@ class SurvivalData(object):
 
         Parameters
         ----------
-        group : group label, optional (default: None)
+        group : group label, optional
             Specify a single group to represent. If no group is specified, then
             the entire sample is treated as one group.
-        max_line_length : int, optional (default: None)
+
+        max_line_length : int, optional
             Specify the maximum length of a single line.
-        separator : str, optional (default: None)
+
+        separator : str, optional
             Specify how to separate individual times.
-        censor_marker : str, optional (default: None)
+
+        censor_marker : str, optional
             String to mark censored times.
 
         Returns
         -------
-        string : str or list of strings
+        str
             String representation of the observed survival times within a group.
         """
         # Get either times and censoring indicators for a single group or for
@@ -325,7 +336,7 @@ class SurvivalData(object):
 
         Returns
         -------
-        describe : pandas.DataFrame
+        pandas.DataFrame
             A DataFrame with a row for every group. The columns are
                 * total
                     The total number of observations within a group
@@ -360,9 +371,9 @@ class SurvivalData(object):
 
         Returns
         -------
-        n_at_risk : pandas.DataFrame
+        pandas.DataFrame
             Number of individuals at risk at the given times within each group.
-            The rows are indexed by the times in ``time``, and the columns are
+            The rows are indexed by the times in `time`, and the columns are
             indexed by group.
         """
         # Validate array of times
@@ -390,9 +401,9 @@ class SurvivalData(object):
 
         Returns
         -------
-        n_events : pandas.DataFrame
+        pandas.DataFrame
             Number of events at the given times within each group. The rows are
-            indexed by the times in ``time``, and the columns are indexed by
+            indexed by the times in `time`, and the columns are indexed by
             group.
         """
         # Validate array of times
@@ -419,12 +430,14 @@ class SurvivalData(object):
 
         Parameters
         ----------
-        legend : bool, optional (default: True)
+        legend : bool, optional
             Indicates whether to display a legend for the plot.
-        legend_kwargs : dict, optional (default: None)
-            Keyword parameters to pass to legend().
-        colors : list or tuple or dict or str, optional (default: None)
-            Colors for each group. This is ignored if ``palette`` is provided.
+
+        legend_kwargs : dict, optional
+            Keyword parameters to pass to ``matplotlib.axes.Axes.legend()``.
+
+        colors : list or tuple or dict or str, optional
+            Colors for each group. This is ignored if `palette` is provided.
             Possible types:
                 * list or tuple
                     Sequence of valid matplotlib colors to cycle through.
@@ -433,18 +446,23 @@ class SurvivalData(object):
                     matplotlib colors as values.
                 * str
                     Name of a matplotlib colormap.
-        palette : str, optional (default: None)
+
+        palette : str, optional
             Name of a seaborn color palette. Requires seaborn to be installed.
-            Setting a color palette overrides the ``colors`` parameter.
-        ax : matplotlib.axes.Axes, optional (default: None)
+            Setting a color palette overrides the `colors` parameter.
+
+        ax : matplotlib.axes.Axes, optional
             The axes on which to plot. If this is not specified, the current
-            axis will be used.
+            axes will be used.
+
         **kwargs : keyword arguments
-            Additional keyword arguments to pass to the plot() function.
+            Additional keyword arguments to pass to
+            ``matplotlib.axes.Axes.plot()`` when plotting the lifetimes.
 
         Returns
         -------
-        The matplotlib.axes.Axes on which the plot was drawn.
+        matplotlib.axes.Axes
+            The axes on which the plot was drawn.
         """
         # Validate colors
         colors = check_colors(colors, n_colors=len(self.group_labels),
@@ -509,12 +527,14 @@ class SurvivalData(object):
 
         Parameters
         ----------
-        legend : bool, optional (default: True)
+        legend : bool, optional
             Indicates whether to display a legend for the plot.
-        legend_kwargs : dict, optional (default: None)
-            Keyword parameters to pass to legend().
-        colors : list or tuple or dict or str, optional (default: None)
-            Colors for each group. This is ignored if ``palette`` is provided.
+
+        legend_kwargs : dict, optional
+            Keyword parameters to pass to ``matplotlib.axes.Axes.legend()``.
+
+        colors : list or tuple or dict or str, optional
+            Colors for each group. This is ignored if `palette` is provided.
             Possible types:
                 * list or tuple
                     Sequence of valid matplotlib colors to cycle through.
@@ -523,18 +543,23 @@ class SurvivalData(object):
                     matplotlib colors as values.
                 * str
                     Name of a matplotlib colormap.
-        palette : str, optional (default: None)
+
+        palette : str, optional
             Name of a seaborn color palette. Requires seaborn to be installed.
-            Setting a color palette overrides the ``colors`` parameter.
-        ax : matplotlib.axes.Axes, optional (default: None)
+            Setting a color palette overrides the `colors` parameter.
+
+        ax : matplotlib.axes.Axes, optional
             The axes on which to plot. If this is not specified, the current
             axis will be used.
+
         **kwargs : keyword arguments
-            Additional keyword arguments to pass to step() when plotting.
+            Additional keyword arguments to pass to
+            ``matplotlib.axes.Axes.step()`` when plotting the at-risk process.
 
         Returns
         -------
-        The matplotlib.axes.Axes on which the plot was drawn.
+        matplotlib.axes.Axes
+            The axes on which the plot was drawn.
         """
         # If there is left truncation, include entry times
         if np.any(self.entry > 0):
@@ -582,8 +607,8 @@ class SurvivalData(object):
 
 
 def _check_df_column(df: pd.DataFrame, name):
-    """Check if ``name`` is the name of a column in a DataFrame ``df``.
-    If it is, return the column. Otherwise, return ``name`` unchanged.
+    """Check if `name` is the name of a column in a DataFrame `df`. If it is,
+    return the column. Otherwise, return `name` unchanged.
     """
     if isinstance(name, str):
         if name in df.columns:
@@ -595,8 +620,8 @@ def _check_df_column(df: pd.DataFrame, name):
 
 
 def _n_at_risk(time, t0, t1):
-    """Compute number of individuals at risk at each time in ``time``. The entry
-    and exit times of the data are ``t0`` and ``t1``, respectively.
+    """Compute number of individuals at risk at each time in `time`. The entry
+    and exit times of the data are `t0` and `t1`, respectively.
     """
     n_at_risk = np.empty(len(time), dtype=np.int_)
     for i, t in enumerate(time):
