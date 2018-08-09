@@ -94,6 +94,7 @@ class Model(metaclass=abc.ABCMeta):
 
         return f"{class_name}({lines})"
 
+    @property
     def summary(self):
         """Return a summary of this model."""
         return Summary(self)
@@ -119,7 +120,7 @@ class Summary(object):
         """
         self.model = model
 
-    def __str__(self):
+    def __repr__(self):
         """Return a basic string representation of the model."""
         return self.model.model_type
 

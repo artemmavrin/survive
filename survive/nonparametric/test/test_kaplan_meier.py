@@ -6,7 +6,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from survive.univariate import KaplanMeier
+from survive.nonparametric import KaplanMeier
 
 
 class TestKaplanMeier(unittest.TestCase):
@@ -38,7 +38,7 @@ class TestKaplanMeier(unittest.TestCase):
         km.fit(time)
 
         # There should only be one group
-        self.assertEqual(km.data.n_groups, 1)
+        self.assertEqual(km.data_.n_groups, 1)
 
         # Check estimated survival probabilities
         data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
@@ -91,7 +91,7 @@ class TestKaplanMeier(unittest.TestCase):
         km.fit(time, status=status)
 
         # There should only be one group
-        self.assertEqual(km.data.n_groups, 1)
+        self.assertEqual(km.data_.n_groups, 1)
 
         # Check estimated survival probabilities
         data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
@@ -157,7 +157,7 @@ class TestKaplanMeier(unittest.TestCase):
         km.fit(time, group=group)
 
         # There should be two groups
-        self.assertEqual(km.data.n_groups, 2)
+        self.assertEqual(km.data_.n_groups, 2)
 
         # Check estimated survival probabilities for each group
         data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]

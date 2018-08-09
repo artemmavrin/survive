@@ -1,39 +1,23 @@
-"""The Kaplan-Meier non-parametric survival function estimator.
-
-The Kaplan-Meier estimator (Kaplan & Meier 1958) is also called the
-product-limit estimator. Much of this implementation is inspired by the R
-package ``survival`` (Therneau (2015)).
-
-For a quick introduction to the Kaplan-Meier estimator, see e.g. Section 4.2 in
-Cox & Oakes (1984) or Section 1.4.1 in Kalbfleisch & Prentice (2002). For a more
-thorough treatment, see Chapter 4 in Klein & Moeschberger (2003).
-
-References
-----------
-    * E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
-      observations". Journal of the American Statistical Association, Volume 53,
-      Issue 282 (1958), pp. 457--481. DOI: https://doi.org/10.2307/2281868
-    * Terry M. Therneau. A Package for Survival Analysis in S. version 2.38
-      (2015). CRAN: https://CRAN.R-project.org/package=survival
-    * D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall, London
-      (1984), pp. ix+201.
-    * John D. Kalbfleisch and Ross L. Prentice. The Statistical Analysis of
-      Failure Time Data. Second Edition. Wiley (2002) pp. xiv+439.
-    * John P. Klein and Melvin L. Moeschberger. Survival Analysis. Techniques
-      for Censored and Truncated Data. Second Edition. Springer-Verlag, New York
-      (2003) pp. xvi+538. DOI: https://doi.org/10.1007/b97377
-"""
+"""The Kaplan-Meier non-parametric survival function estimator."""
 
 import numpy as np
 import scipy.stats as st
 
-from .base import NonparametricUnivariateSurvival
-from ..base import SurvivalData
+from .base import NonparametricSurvival
+from .. import SurvivalData
 from ..utils.validation import check_int
 
 
-class KaplanMeier(NonparametricUnivariateSurvival):
+class KaplanMeier(NonparametricSurvival):
     """Non-parametric survival function estimator for right-censored data.
+
+    The Kaplan-Meier estimator (Kaplan & Meier 1958) is also called the
+    product-limit estimator. Much of this implementation is inspired by the R
+    package ``survival`` (Therneau (2015)).
+
+    For a quick introduction to the Kaplan-Meier estimator, see e.g. Section 4.2
+    in Cox & Oakes (1984) or Section 1.4.1 in Kalbfleisch & Prentice (2002). For
+    a more thorough treatment, see Chapter 4 in Klein & Moeschberger (2003).
 
     Properties
     ----------
@@ -89,6 +73,20 @@ class KaplanMeier(NonparametricUnivariateSurvival):
 
     References
     ----------
+        * E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
+          observations". Journal of the American Statistical Association, Volume
+          53, Issue 282 (1958), pp. 457--481.
+          DOI: https://doi.org/10.2307/2281868
+        * Terry M. Therneau. A Package for Survival Analysis in S. version 2.38
+          (2015). CRAN: https://CRAN.R-project.org/package=survival
+        * D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall,
+          London (1984), pp. ix+201.
+        * John D. Kalbfleisch and Ross L. Prentice. The Statistical Analysis of
+          Failure Time Data. Second Edition. Wiley (2002) pp. xiv+439.
+        * John P. Klein and Melvin L. Moeschberger. Survival Analysis.
+          Techniques for Censored and Truncated Data. Second Edition.
+          Springer-Verlag, New York (2003) pp. xvi+538.
+          DOI: https://doi.org/10.1007/b97377
         * Ørnulf Borgan and Knut Liestøl. "A note on confidence intervals and
           bands for the survival function based on transformations."
           Scandinavian Journal of Statistics. Volume 17, Number 1 (1990),
@@ -130,9 +128,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
     @var_type.setter
     def var_type(self, var_type):
         """Set the type of variance estimate."""
-        if self.fitted:
-            raise RuntimeError("'var_type' cannot be set after fitting.")
-        elif var_type in self._var_types:
+        if var_type in self._var_types:
             self._var_type = var_type
         else:
             raise ValueError(f"Invalid value for 'var_type': {var_type}.")
@@ -147,9 +143,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
     @tie_break.setter
     def tie_break(self, tie_break):
         """Set the tie-breaking scheme."""
-        if self.fitted:
-            raise RuntimeError("'tie_break' cannot be set after fitting.")
-        elif tie_break in self._tie_breaks:
+        if tie_break in self._tie_breaks:
             self._tie_break = tie_break
         else:
             raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
@@ -166,8 +160,6 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         """Set the number of bootstrap samples to draw for bootstrap variance
         estimates.
         """
-        if self.fitted:
-            raise RuntimeError("'n_boot' cannot be set after fitting.")
         self._n_boot = check_int(n_boot, minimum=1)
 
     def __init__(self, conf_type="log-log", conf_level=0.95,
@@ -233,36 +225,41 @@ class KaplanMeier(NonparametricUnivariateSurvival):
         self.n_boot = n_boot
         self.random_state = random_state
 
-    def fit(self, time, status=None, entry=None, group=None, data=None):
+    def fit(self, time, status=None, entry=None, group=None, df=None,
+            min_time=0):
         """Fit the Kaplan-Meier estimator to survival data.
 
         Parameters
         ----------
-        time : SurvivalData or one-dimensional array-like or str
-            The observed times. If the DataFrame parameter `data` is provided,
-            this can be the name of a column in `data` from which to get the
-            observed times. If this is a SurvivalData instance, then all other
-            parameters are ignored.
-        status : one-dimensional array-like or string, optional (default: None)
+        time : one-dimensional array-like or str
+            The observed times. If the DataFrame parameter ``df`` is provided,
+            this can be the name of a column in ``df`` from which to get the
+            observed times.
+        status : one-dimensional array-like or str, optional (default: None)
             Censoring indicators. 0 means a right-censored observation, 1 means
             a true failure/event. If not provided, it is assumed that there is
-            no censoring.  If the DataFrame parameter `data` is provided,
-            this can be the name of a column in `data` from which to get the
+            no censoring.  If the DataFrame parameter ``df`` is provided,
+            this can be the name of a column in ``df`` from which to get the
             censoring indicators.
-        entry : one-dimensional array-like or string, optional (default: None)
+        entry : one-dimensional array-like or str, optional (default: None)
             Entry/birth times of the observations (for left-truncated data). If
             not provided, the entry time for each observation is set to 0. If
-            the DataFrame parameter `data` is provided, this can be the name of
-            a column in `data` from which to get the entry times.
+            the DataFrame parameter ``df`` is provided, this can be the name of
+            a column in ``df`` from which to get the entry times.
         group : one-dimensional array-like or string, optional (default: None)
             Group/stratum labels for each observation. If not provided, the
             entire sample is taken as a single group. If the DataFrame parameter
-            `data` is provided, this can be the name of a column in `data` from
+            ``df`` is provided, this can be the name of a column in ``df`` from
             which to get the group labels.
-        data : pandas.DataFrame, optional (default: None)
+        df : pandas.DataFrame, optional (default: None)
             Optional DataFrame from which to extract the data. If this parameter
-            is specified, then the parameters `time`, `status`, `entry`, and
-            `group` can be column names of this DataFrame.
+            is specified, then the parameters ``time``, ``status``, ``entry``,
+            and ``group`` can be column names of this DataFrame.
+        min_time : numeric
+            The minimum observed time to consider part of the sample.
+            Observations with later event or censoring times are ignored. For
+            the Kaplan-Meier estimator, this means that estimated quantity is
+            the conditional survival function given survival up to ``min_time``.
 
         Returns
         -------
@@ -273,22 +270,22 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             self._data = time
         else:
             self._data = SurvivalData(time=time, status=status, entry=entry,
-                                      group=group, data=data)
+                                      group=group, df=df, min_time=min_time)
 
         # Compute the Kaplan-Meier product-limit estimator and related
         # quantities at the distinct failure times within each group
-        self._survival = np.empty(self._data.n_groups, dtype=object)
-        self._survival_var = np.empty(self._data.n_groups, dtype=object)
-        self._survival_ci_lower = np.empty(self._data.n_groups, dtype=object)
-        self._survival_ci_upper = np.empty(self._data.n_groups, dtype=object)
-        for i in range(self._data.n_groups):
-            # e = number of events at an event time, r = size of the risk set at
+        self.estimate_ = []
+        self.estimate_var_ = []
+        self.estimate_ci_lower_ = []
+        self.estimate_ci_upper_ = []
+        for i, group in enumerate(self._data.group_labels):
+            # d = number of events at an event time, y = size of the risk set at
             # an event time
-            e = self._data.n_events[i]
-            r = self._data.n_at_risk[i]
+            d = self._data.events[group].n_events
+            y = self._data.events[group].n_at_risk
 
             # Product-limit survival probability estimates
-            self._survival[i] = np.cumprod(1. - e / r)
+            self.estimate_.append(np.cumprod(1. - d / y))
 
             # In the following block, the variable ``sigma2`` is the variance
             # estimate divided by the square of the survival function
@@ -296,29 +293,29 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             # later.
             if self._var_type == "bootstrap":
                 # Estimate the survival function variance using the bootstrap
-                self._survival_var[i] \
-                    = _km_var_boot(data=self._data, index=i,
+                var = _km_var_boot(data=self._data, index=i,
                                    random_state=self._random_state,
                                    n_boot=self.n_boot)
+                self.estimate_var_.append(var)
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    sigma2 = self._survival_var[i] / (self._survival[i] ** 2)
+                    sigma2 = self.estimate_var_[i] / (self.estimate_[i] ** 2)
             else:
                 # Estimate the survival function variance using Greenwood's
                 # formula or the Aalen-Johansen method
                 if self._var_type == "greenwood":
                     # Greenwood's formula
                     with np.errstate(divide="ignore"):
-                        sigma2 = np.cumsum(e / r / (r - e))
+                        sigma2 = np.cumsum(d / y / (y - d))
                 elif self._var_type == "aalen-johansen":
                     # Aalen-Johansen estimate
                     if self._tie_break == "discrete":
-                        sigma2 = np.cumsum(e / (r ** 2))
+                        sigma2 = np.cumsum(d / (y ** 2))
                     elif self._tie_break == "continuous":
                         # Increments of sum in equation (3.14) on page 84 of
                         # Aalen, Borgan, & Gjessing (2008)
-                        inc = np.empty(len(e), dtype=np.float_)
-                        for j in range(len(e)):
-                            inc[j] = np.sum(1 / (r[j] - np.arange(e[j])) ** 2)
+                        inc = np.empty(len(d), dtype=np.float_)
+                        for j in range(len(d)):
+                            inc[j] = np.sum(1 / (y[j] - np.arange(d[j])) ** 2)
                         sigma2 = np.cumsum(inc)
                     else:
                         # This should not be reachable
@@ -330,7 +327,7 @@ class KaplanMeier(NonparametricUnivariateSurvival):
                         f"Invalid variance type: {self._var_type}.")
 
                 with np.errstate(invalid="ignore"):
-                    self._survival_var[i] = (self._survival[i] ** 2) * sigma2
+                    self.estimate_var_.append((self.estimate_[i] ** 2) * sigma2)
 
             # Standard normal quantile for confidence intervals
             z = st.norm.ppf((1 - self.conf_level) / 2)
@@ -338,34 +335,34 @@ class KaplanMeier(NonparametricUnivariateSurvival):
             # Compute confidence intervals at the observed event times
             if self._conf_type == "linear":
                 # Normal approximation CI
-                c = z * np.sqrt(self._survival_var[i])
-                lower = self._survival[i] + c
-                upper = self._survival[i] - c
+                c = z * np.sqrt(self.estimate_var_[i])
+                lower = self.estimate_[i] + c
+                upper = self.estimate_[i] - c
             elif self._conf_type == "log":
                 # CI based on a delta method CI for log(S(t))
                 with np.errstate(invalid="ignore"):
                     c = z * np.sqrt(sigma2)
-                    lower = self._survival[i] * np.exp(c)
-                    upper = self._survival[i] * np.exp(-c)
+                    lower = self.estimate_[i] * np.exp(c)
+                    upper = self.estimate_[i] * np.exp(-c)
             elif self._conf_type == "log-log":
                 # CI based on a delta method CI for -log(-log(S(t)))
                 with np.errstate(divide="ignore", invalid="ignore"):
-                    c = z * np.sqrt(sigma2) / np.log(self._survival[i])
-                    lower = self._survival[i] ** np.exp(c)
-                    upper = self._survival[i] ** np.exp(-c)
+                    c = z * np.sqrt(sigma2) / np.log(self.estimate_[i])
+                    lower = self.estimate_[i] ** np.exp(c)
+                    upper = self.estimate_[i] ** np.exp(-c)
             elif self._conf_type == "logit":
                 # CI based on a delta method CI for log(S(t)/(1-S(t)))
                 with np.errstate(invalid="ignore"):
-                    odds = self._survival[i] / (1 - self._survival[i])
-                    c = z * np.sqrt(sigma2) / (1 - self._survival[i])
+                    odds = self.estimate_[i] / (1 - self.estimate_[i])
+                    c = z * np.sqrt(sigma2) / (1 - self.estimate_[i])
                     lower = 1 - 1 / (1 + odds * np.exp(c))
                     upper = 1 - 1 / (1 + odds * np.exp(-c))
                 pass
             elif self._conf_type == "arcsin":
                 # CI based on a delta method CI for arcsin(sqrt(S(t))
                 with np.errstate(invalid="ignore"):
-                    arcsin = np.arcsin(np.sqrt(self._survival[i]))
-                    odds = self._survival[i] / (1 - self._survival[i])
+                    arcsin = np.arcsin(np.sqrt(self.estimate_[i]))
+                    odds = self.estimate_[i] / (1 - self.estimate_[i])
                     c = 0.5 * z * np.sqrt(odds * sigma2)
                     lower = np.sin(np.maximum(0., arcsin + c)) ** 2
                     upper = np.sin(np.minimum(np.pi / 2, arcsin - c)) ** 2
@@ -376,15 +373,15 @@ class KaplanMeier(NonparametricUnivariateSurvival):
 
             # Force confidence interval bounds to be between 0 and 1
             with np.errstate(invalid="ignore"):
-                self._survival_ci_lower[i] = np.maximum(lower, 0.)
-                self._survival_ci_upper[i] = np.minimum(upper, 1.)
+                self.estimate_ci_lower_.append(np.maximum(lower, 0.))
+                self.estimate_ci_upper_.append(np.minimum(upper, 1.))
 
             # Make sure that variance estimates and confidence intervals are NaN
             # when the estimated survival probability is zero
-            ind_zero = (self._survival[i] == 0.)
-            self._survival_var[i][ind_zero] = np.nan
-            self._survival_ci_lower[i][ind_zero] = np.nan
-            self._survival_ci_upper[i][ind_zero] = np.nan
+            ind_zero = (self.estimate_[i] == 0.)
+            self.estimate_var_[i][ind_zero] = np.nan
+            self.estimate_ci_lower_[i][ind_zero] = np.nan
+            self.estimate_ci_upper_[i][ind_zero] = np.nan
 
         self.fitted = True
         return self
@@ -412,13 +409,13 @@ def _km_var_boot(data: SurvivalData, index, random_state, n_boot):
     """
     # Extract observed times, censoring indicators, and entry times for the
     # specified group
-    ind = (data.sample.group == data.groups[index])
-    time = np.asarray(data.sample.time[ind])
-    status = np.asarray(data.sample.status[ind])
-    entry = np.asarray(data.sample.entry[ind])
+    ind = (data.group == data.group_labels[index])
+    time = np.asarray(data.time[ind])
+    status = np.asarray(data.status[ind])
+    entry = np.asarray(data.entry[ind])
 
     # Distinct true event times
-    events = data.time[index]
+    events = np.unique(time[status == 1])
 
     # n = sample size, k = number of distinct true events
     n = len(time)
@@ -442,7 +439,7 @@ def _km_var_boot(data: SurvivalData, index, random_state, n_boot):
         r = np.empty(shape=(k,), dtype=np.int_)
         for j, t in enumerate(events):
             e[j] = np.sum((time_boot == t) & (status_boot == 1))
-            r[j] = np.sum((entry_boot < t) & (time_boot >= t))
+            r[j] = np.sum((entry_boot <= t) & (time_boot >= t))
 
         # Compute the survival curve
         with np.errstate(divide="ignore", invalid="ignore"):
