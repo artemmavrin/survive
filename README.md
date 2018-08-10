@@ -30,3 +30,8 @@ Moreover, Survive is on the [Python Package Index (PyPI)](https://pypi.org/proje
   A small dataset (42 total observations) separated into two groups with heavy right-censoring in one and none in the other.
 * [Channing House dataset.](https://survive-python.readthedocs.io/examples/Channing_House_Dataset.html)
   A slightly larger dataset (462 total observations) separated into two groups with right-censoring and left truncation in both.
+
+
+## Documentation
+
+The complete API Reference for Survive is available on [Read the Docs](https://survive-python.readthedocs.io/api.html).
