@@ -1,6 +1,7 @@
 # Survive
 
 [![PyPI version](https://badge.fury.io/py/survive.svg)](https://badge.fury.io/py/survive)
+[![Documentation Status](https://readthedocs.org/projects/survive-python/badge/?version=latest)](https://survive-python.readthedocs.io/en/latest/?badge=latest)
 
 Survival analysis in Python.
 

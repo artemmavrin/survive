@@ -2,7 +2,7 @@
 API Reference
 =============
 
-This page lists all the public classes and functions of ``survive``.
+This page lists all the public classes and functions of Survive.
 
 :mod:`survive`: Top-Level Module
 =================================
@@ -75,8 +75,8 @@ Functions
     :no-members:
     :no-inherited-members:
 
-Classes
--------
+Estimator Classes
+-----------------
 
 .. currentmodule:: survive
 
@@ -86,4 +86,28 @@ Classes
     :template: class.rst
 
     nonparametric.KaplanMeier
+
+Summary Classes
+---------------
+
+.. currentmodule:: survive
+
+.. autosummary::
+    :toctree: generated/
+    :nosignatures:
+    :template: class.rst
+
     nonparametric.NonparametricEstimatorSummary
+
+Abstract Base Classes
+---------------------
+
+.. currentmodule:: survive
+
+.. autosummary::
+    :toctree: generated/
+    :nosignatures:
+    :template: class.rst
+
+    nonparametric.NonparametricEstimator
+    nonparametric.NonparametricSurvival
