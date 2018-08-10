@@ -11,25 +11,19 @@ from ..utils import check_random_state
 class Model(metaclass=abc.ABCMeta):
     """Abstract base class for survival models.
 
-    Subclasses of Model should have an __init__() method of the form
+    Notes
+    -----
+    Subclasses of :class:`Model` should have an :func:`__init__` method of the
+    form::
+
         def __init__(self, a, b, ...):
             self.a = a
             self.b = b
             ...
 
-    Each attribute 'a', 'b', ... should be a property instance with a setter
-    method that performs validation for that __init__() parameter. Validation
-    should not be done inside __init__() itself.
-
-    Properties
-    ----------
-    model_type : str
-        The name of this model type.
-    random_state : any
-        Seed for this model's random number generator.
-        NB: this may not be a random number generator (i.e., a
-        numpy.random.RandomState object). The actual RNG is not a public
-        attribute and should not be used directly.
+    Each attribute `a`, `b`, ... should be a :class:`property` with a setter
+    method that performs validation for that :func:`__init__` parameter.
+    Validation should not be done inside :func:`__init__` itself.
     """
     model_type: str
 
@@ -41,7 +35,15 @@ class Model(metaclass=abc.ABCMeta):
 
     @property
     def random_state(self):
-        """Seed for this model's random number generator."""
+        """Seed for this model's random number generator. This may not be an
+        :class:`numpy.random.RandomState` instance. The internal RNG is not a
+        public attribute and should not be used directly.
+
+        Returns
+        -------
+        random_state : object
+            The seed for this model's RNG.
+        """
         return self._random_state_seed
 
     @random_state.setter
@@ -50,16 +52,19 @@ class Model(metaclass=abc.ABCMeta):
         self._random_state_seed = random_state
         self._random_state = check_random_state(random_state)
 
-    def __repr__(self):
-        """Return a pretty-printed call used to initialize this model.
+    @property
+    def as_string(self):
+        """String representation of this model.
 
-        Algorithm modified from sklearn.base._pprint().
+        Notes
+        -----
+        The formatting algorithm is modified from :func:`sklearn.base._pprint`.
 
         Returns
         -------
-        repr(self) : str
-            A string which should be able to be used to instantiate a new
-            identical model.
+        model_string : str
+            A pretty-printed string representation of this model which should be
+            able to be used to instantiate a new identical model.
         """
         class_name = self.__class__.__name__
         offset = len(class_name) + 1
@@ -94,30 +99,41 @@ class Model(metaclass=abc.ABCMeta):
 
         return f"{class_name}({lines})"
 
+    def __repr__(self):
+        return self.as_string
+
     @property
     def summary(self):
-        """Return a summary of this model."""
+        """Structure summarizing this model.
+
+        Returns
+        -------
+        summary : survive.base.Summary
+            This model's summary.
+
+        See Also
+        --------
+        survive.base.Summary
+        """
         return Summary(self)
 
 
 class Summary(object):
-    """Summary of a survival model.
+    """Base class for summaries of survival models (intended for subclassing).
 
-    Properties
+    Parameters
     ----------
-    model : Model
-        The model being summarized.
+    model : survive.base.Model
+        The :class:`Model` being summarized.
+
+    Attributes
+    ----------
+    model : survive.base.Model
+        The :class:`Model` being summarized.
     """
     model: Model
 
     def __init__(self, model):
-        """Initialize a Summary object.
-
-        Parameters
-        ----------
-        model : Model
-            The model to be summarized.
-        """
         self.model = model
 
     def __repr__(self):
@@ -126,21 +142,20 @@ class Summary(object):
 
 
 class Fittable(metaclass=abc.ABCMeta):
-    """Abstract mixin class for models implementing a fit() method.
-
-    Properties
-    ----------
-    fitted : bool
-        Indicates whether this model has been fitted.
-    """
+    """Abstract mixin class for models implementing a :func:`fit` method."""
     fitted: bool = False
 
     @abc.abstractmethod
     def fit(self, *args, **kwargs):
         """Fit this model to data.
 
-        This function should set the `fitted` property to True and return self.
+        Returns
+        -------
+        self : Model
+            The :class:`Model` being fitted.
         """
+        # Intended implementation:
+        # This function should set self.fitted = True and return self.
         pass
 
     def check_fitted(self):
@@ -151,8 +166,15 @@ class Fittable(metaclass=abc.ABCMeta):
 
 
 class Predictor(metaclass=abc.ABCMeta):
-    """Abstract mixin class for models implementing a predict() method."""
+    """Abstract mixin class for models implementing a :func:`predict` method."""
 
     @abc.abstractmethod
     def predict(self, *args, **kwargs):
+        """Make predictions.
+
+        Returns
+        -------
+        predictions : object
+            The predictions.
+        """
         pass

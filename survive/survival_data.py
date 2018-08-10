@@ -21,37 +21,43 @@ class SurvivalData(object):
 
     Parameters
     ----------
-    time : one-dimensional array-like or str
+    time : array-like or str
         The observed times. If the DataFrame parameter `df` is provided, this
         can be the name of a column in `df` from which to get the observed
-        times.
+        times. Otherwise this should be a one-dimensional array of positive
+        numbers.
 
-    status : one-dimensional array-like or str, optional
+    status : array-like or str, optional
         Censoring indicators. 0 means a right-censored observation, 1 means a
         true failure/event. If not provided, it is assumed that there is no
         censoring.  If the DataFrame parameter `df` is provided, this can be
         the name of a column in `df` from which to get the censoring indicators.
+        Otherwise this should be an array of 0's and 1's of the same shape as
+        the array of observed times.
 
-    entry : one-dimensional array-like or str, optional
+    entry : array-like or str, optional
         Entry/birth times of the observations (for left-truncated data). If not
         provided, the entry time for each observation is set to 0. If the
         DataFrame parameter `df` is provided, this can be the name of a column
-        in `df` from which to get the entry times.
+        in `df` from which to get the entry times. Otherwise this should be an
+        array of non-negative numbers of the same shape as the array of observed
+        times.
 
-    group : one-dimensional array-like or string, optional
+    group : array-like or string, optional
         Group/stratum labels for each observation. If not provided, the entire
         sample is taken as a single group. If the DataFrame parameter `df`
         is provided, this can be the name of a column in `df` from which to
-        get the group labels.
+        get the group labels. Otherwise this should be an array of the same
+        shape as the array of observed times.
 
     df : pandas.DataFrame, optional
-        Optional DataFrame from which to extract the data. If this parameter is
-        specified, then the parameters `time`, `status`, `entry`, and `group`
-        can be column names of this DataFrame.
+        Optional :class:`pandas.DataFrame` from which to extract the data. If
+        this parameter is specified, then the parameters `time`, `status`,
+        `entry`, and `group` can be column names of this DataFrame.
 
     min_time : numeric, optional
         The minimum observed time to consider part of the sample. This is for
-        conditional inference. Observations with later observed event or
+        conditional inference. Observations with earlier observed event or
         censoring times are ignored. If not provided, all observations are used.
 
     warn : bool, optional
@@ -397,7 +403,7 @@ class SurvivalData(object):
         Parameters
         ----------
         time : float or array-like
-            Times at which to report the risk set sizes.
+            Times at which to report the numbers of events.
 
         Returns
         -------
@@ -434,7 +440,7 @@ class SurvivalData(object):
             Indicates whether to display a legend for the plot.
 
         legend_kwargs : dict, optional
-            Keyword parameters to pass to ``matplotlib.axes.Axes.legend()``.
+            Keyword parameters to pass to :func:`matplotlib.axes.Axes.legend`.
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
@@ -457,7 +463,7 @@ class SurvivalData(object):
 
         **kwargs : keyword arguments
             Additional keyword arguments to pass to
-            ``matplotlib.axes.Axes.plot()`` when plotting the lifetimes.
+            :func:`matplotlib.axes.Axes.plot` when plotting the lifetimes.
 
         Returns
         -------
@@ -531,7 +537,7 @@ class SurvivalData(object):
             Indicates whether to display a legend for the plot.
 
         legend_kwargs : dict, optional
-            Keyword parameters to pass to ``matplotlib.axes.Axes.legend()``.
+            Keyword parameters to pass to :func:`matplotlib.axes.Axes.legend`.
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
@@ -550,11 +556,11 @@ class SurvivalData(object):
 
         ax : matplotlib.axes.Axes, optional
             The axes on which to plot. If this is not specified, the current
-            axis will be used.
+            axes will be used.
 
         **kwargs : keyword arguments
             Additional keyword arguments to pass to
-            ``matplotlib.axes.Axes.step()`` when plotting the at-risk process.
+            :func:`matplotlib.axes.Axes.step` when plotting the at-risk process.
 
         Returns
         -------

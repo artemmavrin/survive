@@ -12,18 +12,8 @@ from ..utils.validation import (check_bool, check_colors, check_data_1d,
 
 
 class NonparametricEstimator(Model, Fittable, Predictor):
-    """Abstract base class for nonparametric estimators.
+    """Abstract base class for nonparametric estimators."""
 
-    Properties
-    ----------
-    conf_type : str
-        Type of confidence intervals to report. Acceptable values depend on the
-        actual estimator.
-    conf_level : float
-        Confidence level of the confidence intervals.
-    data_ : SurvivalData
-        Survival data used to fit the estimator (only available after fitting).
-    """
     # The quantity being estimated (e.g., survival function, cumulative hazard,
     # hazard rate, etc.)
     _estimand: str
@@ -49,7 +39,13 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
     @property
     def conf_type(self):
-        """Type of confidence intervals to report."""
+        """Type of confidence intervals to report.
+
+        Returns
+        -------
+        conf_type : str
+            The type of confidence interval.
+        """
         return self._conf_type
 
     @conf_type.setter
@@ -62,7 +58,13 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
     @property
     def conf_level(self):
-        """Confidence level of the confidence intervals."""
+        """Confidence level of the confidence intervals.
+
+        Returns
+        -------
+        conf_level : float
+            The confidence level.
+        """
         return self._conf_level
 
     @conf_level.setter
@@ -72,7 +74,16 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
     @property
     def data_(self) -> SurvivalData:
-        """Survival data used to fit the estimator."""
+        """Survival data used to fit the estimator.
+
+        This :class:`property` is only available after fitting.
+
+        Returns
+        -------
+        data : SurvivalData
+            The :class:`survive.SurvivalData` instance used to fit the
+            estimator.
+        """
         self.check_fitted()
         return self._data
 
@@ -81,31 +92,36 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         pass
 
     def predict(self, time, *, return_se=False, return_ci=False):
-        """Return estimates at the given times.
+        """Return estimates of at the given times.
 
         Parameters
         ----------
         time : array-like
             One-dimensional array of times at which to make estimates.
-        return_se : bool, optional (default: False)
+
+        return_se : bool, optional
             If True, also return standard error estimates.
-        return_ci : bool, optional (default: False)
+
+        return_ci : bool, optional
             If True, also return confidence intervals.
 
         Returns
         -------
         estimate : pandas.DataFrame
             DataFrame of estimates. Each columns represents a group, and each
-            row represents an entry of ``time``.
+            row represents an entry of `time`.
+
         std_err : pandas.DataFrame, optional
-            Standard errors of the estimates. Same shape as ``estimate``.
-            Returned only if ``return_se`` is True.
+            Standard errors of the estimates. Same shape as `estimate`. Returned
+            only if `return_se` is True.
+
         lower : pandas.DataFrame, optional
-            Lower confidence interval bounds. Same shape as ``estimate``.
-            Returned only if ``return_ci`` is True.
+            Lower confidence interval bounds. Same shape as `estimate`. Returned
+            only if `return_ci` is True.
+
         upper : pandas.DataFrame, optional
-            Upper confidence interval bounds. Same shape as ``estimate``.
-            Returned only if ``return_se`` is True.
+            Upper confidence interval bounds. Same shape as `estimate`. Returned
+            only if `return_ci` is True.
         """
         # Validation
         self.check_fitted()
@@ -163,8 +179,12 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
         Returns
         -------
-        summary : SurvivalSummary
+        summary : NonparametricEstimatorSummary
             The summary of this estimator.
+
+        See Also
+        --------
+        survive.nonparametric.NonparametricEstimatorSummary
         """
         self.check_fitted()
         return NonparametricEstimatorSummary(self)
@@ -179,23 +199,30 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         *groups : list of group labels
             Specify the groups whose curves should be plotted. If none are
             given, the curves for all groups are plotted.
-        ci : bool, optional (default: False)
+
+        ci : bool, optional
             If True, draw point-wise confidence intervals (confidence bands).
-        ci_kwargs : dict, optional (default: None)
-            Additional keyword parameters to pass to step() or fill_between()
-            when plotting the confidence band.
-        mark_censor : bool, optional (default: True)
+
+        ci_kwargs : dict, optional
+            Additional keyword parameters to pass to
+            :func:`matplotlib.axes.Axes.fill_between` when plotting the
+            confidence band.
+
+        mark_censor : bool, optional
             If True, indicate the censored times by markers on the plot.
-        mark_censor_kwargs : dict, optional (default: None)
-            Additional keyword parameters to pass to scatter() when marking
-            censored times.
-        legend : bool, optional (default: True)
+
+        mark_censor_kwargs : dict, optional
+            Additional keyword parameters to pass to
+            :func:`matplotlib.axes.Axes.scatter` when marking censored times.
+
+        legend : bool, optional
             Indicates whether to display a legend for the plot.
-        legend_kwargs : dict, optional (default: None)
-            Keyword parameters to pass to legend().
-        colors : list or tuple or dict or str, optional (default: None)
-            Colors for each group's curve. This is ignored if `palette` is
-            provided.
+
+        legend_kwargs : dict, optional
+            Keyword parameters to pass to :func:`matplotlib.axes.Axes.legend`.
+
+        colors : list or tuple or dict or str, optional
+            Colors for each group. This is ignored if `palette` is provided.
             Possible types:
                 * list or tuple
                     Sequence of valid matplotlib colors to cycle through.
@@ -204,18 +231,23 @@ class NonparametricEstimator(Model, Fittable, Predictor):
                     matplotlib colors as values.
                 * str
                     Name of a matplotlib colormap.
-        palette : str, optional (default: None)
+
+        palette : str, optional
             Name of a seaborn color palette. Requires seaborn to be installed.
             Setting a color palette overrides the `colors` parameter.
-        ax : matplotlib.axes.Axes, optional (default: None)
-            The axes on which to draw the line. If this is not specified, the
-            current axis will be used.
+
+        ax : matplotlib.axes.Axes, optional
+            The axes on which to plot. If this is not specified, the current
+            axes will be used.
+
         **kwargs : keyword arguments
-            Additional keyword arguments to pass to step() when plotting.
+            Additional keyword arguments to pass to
+            :func:`matplotlib.axes.Axes.step` when plotting the estimates.
 
         Returns
         -------
-        The matplotlib.axes.Axes on which the curve was drawn.
+        matplotlib.axes.Axes
+            The axes on which the plot was drawn.
         """
         self.check_fitted()
 
@@ -319,17 +351,18 @@ class NonparametricSurvival(NonparametricEstimator):
     def quantile(self, prob):
         """Empirical quantile estimates for the time-to-event distribution.
 
-        For a probability level p between 0 and 1, the empirical p-quantile of
-        the time-to-event distribution with estimated survival function S(t) is
-        defined to be the time at which the horizontal line at height 1-p
-        intersects with the estimated survival curve. If such a time is not
-        unique, then instead there is a time interval on which the estimated
-        survival curve is flat and coincides with the horizontal line at height
-        1-p. In this case the midpoint of this interval is taken to be the
-        empirical p-quantile estimate (this is just one of many possible
+        For a probability level :math:`p` between 0 and 1, the empirical
+        :math:`p`-quantile of the time-to-event distribution with estimated
+        survival function :math:`\hat{S}(t)` is defined to be the time at which
+        the horizontal line at height :math:`1-p` intersects with the estimated
+        survival curve. If such a time is not unique, then instead there is a
+        time interval on which the estimated survival curve is flat and
+        coincides with the horizontal line at height :math:`1-p`. In this case
+        the midpoint of this interval is taken to be the empirical
+        :math:`p`-quantile estimate (this is just one of many possible
         conventions, and the one used by the R package ``survival``). If the
-        survival function estimate never gets as low as 1-p, then the p-quantile
-        cannot be estimated.
+        survival function estimate never gets as low as :math:`1-p`, then the
+        :math:`p`-quantile cannot be estimated.
 
         Parameters
         ----------
@@ -340,9 +373,10 @@ class NonparametricSurvival(NonparametricEstimator):
         Returns
         -------
         quantiles : pandas.DataFrame
-            The quantile estimates. Rows are entries of ``time``, columns are
-            the model's group labels. Entries for probability levels for which
-            the quantile estimate is not defined are nan (not a number).
+            The quantile estimates. Rows are indexed by the entries of `time`
+            and columns are indexed by the model's group labels. Entries for
+            probability levels for which the quantile estimate is not defined
+            are nan (not a number).
         """
         self.check_fitted()
         prob = check_data_1d(prob)
@@ -382,13 +416,8 @@ class NonparametricSurvival(NonparametricEstimator):
 
 
 class NonparametricEstimatorSummary(Summary):
-    """Summaries for nonparametric estimators.
+    """Summaries for nonparametric estimators."""
 
-    Properties
-    ----------
-    model : NonparametricEstimator
-        The nonparametric estimator being summarized.
-    """
     model: NonparametricEstimator
 
     def table(self, group):

@@ -1,4 +1,4 @@
-"""Base classes for survive objects."""
+"""Base classes for survival analysis objects."""
 
 from .model import Fittable
 from .model import Model

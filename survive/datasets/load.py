@@ -6,36 +6,44 @@ import pathlib
 import pandas as pd
 
 
-# Get full filename
 def _full_filename(filename):
     cwd = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))
     return cwd.joinpath("data", filename)
 
 
 def leukemia():
-    """Load the leukemia data from Table 1.1 of Cox & Oakes (1984).
+    """Load the leukemia dataset.
 
-    The data consist of times of remission of two groups of leukaemia patients.
-    One group was a control, while the other was treated with the drug
-    6-mercaptopurine. Right-censoring is common in the treatment group, but
-    there is no censoring in the control group.
+    These data are taken from Table 1.1 of [1]_.
+
+    The data consist of times of remission (in weeks) of two groups of leukaemia
+    patients. Out of the 42 total patients, 21 were in a control group, and the
+    other 21 were treated with the drug 6-mercaptopurine. Right-censoring is
+    common in the treatment group, but there is no censoring in the control
+    group.
+
+    Patients were observed until their leukemia symptoms relapsed or until the
+    study ended, whichever occurred first. Each patient in the control group
+    experienced relapse before the study ended, while 12 patients in the
+    treatment group did not come out of remission during the study. Thus, there
+    is heavy right-censoring in the treatment group and no right-censoring in
+    the control group.
 
     Returns
     -------
-    data : pandas.DataFrame
-        DataFrame of the leukemia data.
-        Column descriptions:
+    pandas.DataFrame
+        The leukemia data. Column descriptions:
             * time
                 The observed leukemia remission times.
             * status
                 Right-censoring indicators (0=censored, 1=event).
-            * group (categorical)
+            * group
                 Group labels (control or treatment).
 
     References
     ----------
-        * D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall,
-          London (1984), pp. ix+201.
+    .. [1] D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall,
+        London (1984), pp. ix+201.
     """
     return pd.read_csv(_full_filename("leukemia.csv"), header=0,
                        dtype=dict(time="int", status="int", group="category")
@@ -43,10 +51,10 @@ def leukemia():
 
 
 def channing():
-    """Load the Channing House retirement home data from Hyde (1980).
+    """Load the Channing House dataset.
 
-    This is the `channing` dataset in the R package `boot`. From the package
-    description (Canty & Ripley (2017)):
+    This is the ``channing`` dataset in the R package ``boot``. From the package
+    description [1]_:
 
         Channing House is a retirement centre in Palo Alto, California. These
         data were collected between the opening of the house in 1964 until
@@ -58,22 +66,26 @@ def channing():
         Channing House. Differences between the survival of the sexes, taking
         age into account, was one of the primary concerns of this study.
 
+    These data feature left truncation because residents entered Channing House
+    at different ages, and their lifetimes were not observed before entry. This
+    is a biased sampling problem since there are no observations on individuals
+    who died before potentially entering Channing House.
+
     Returns
     -------
-    data : pandas.DataFrame
-        DataFrame of the Channing House data.
-        Column descriptions:
-            * sex (categorical)
+    pandas.DataFrame
+        The Channing House data. Column descriptions:
+            * sex
                 Sex of each resident (male or female).
-            * entry (int)
+            * entry
                 The resident's age (in months) on entry to the centre.
-            * exit (int)
+            * exit
                 The age (in months) of the resident on death, leaving the centre
                 or July 1, 1975 whichever event occurred first.
-            * time (int)
+            * time
                 The length of time (in months) that the resident spent at
-                Channing House.
-            * status (int)
+                Channing House (`time=exit-event`).
+            * status
                 Right-censoring indicator. 1 indicates that the resident died at
                 Channing House, 0 indicates that they left the house prior to
                 July 1, 1975 or that they were still alive and living in the
@@ -81,12 +93,9 @@ def channing():
 
     References
     ----------
-        * J. Hyde. Testing survival with incomplete observations. Biostatistics
-          Casebook. R.G. Miller, B. Efron, B.W. Brown, and L.E. Moses (editors).
-          Wiley (1980), pp. 31--46.
-        * Angelo Canty and Brian Ripley. boot: Bootstrap R (S-Plus) Functions.
-          R package version 1.3-20 (2017).
-          CRAN: https://cran.r-project.org/web/packages/boot/index.html
+    .. [1] Angelo Canty and Brian Ripley. boot: Bootstrap R (S-Plus) Functions.
+        R package version 1.3-20 (2017).
+        `CRAN <https://cran.r-project.org/web/packages/boot/index.html>`_.
     """
     return pd.read_csv(_full_filename("channing.csv"), header=0,
                        dtype=dict(sex="category", entry="int", exit="int",
