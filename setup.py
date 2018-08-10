@@ -2,6 +2,8 @@ from os import path
 
 from setuptools import setup, find_packages
 
+import survive
+
 # Load long description from README.md
 here = path.abspath(path.dirname(__file__))
 with open(path.join(here, "README.md"), "r") as f:
@@ -9,7 +11,7 @@ with open(path.join(here, "README.md"), "r") as f:
 
 setup(
     name="survive",
-    version="0.0.0",
+    version=survive.__version__,
     description="Survival analysis in Python",
     long_description=long_description,
     long_description_content_type="text/markdown",

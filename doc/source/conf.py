@@ -14,7 +14,10 @@
 
 import os
 import sys
+
 sys.path.insert(0, os.path.abspath('../../'))
+
+import survive
 
 # -- Project information -----------------------------------------------------
 
@@ -23,10 +26,9 @@ copyright = '2018, Artem Mavrin'
 author = 'Artem Mavrin'
 
 # The short X.Y version
-version = ''
+version = survive.__version__
 # The full version, including alpha/beta/rc tags
-release = ''
-
+release = version
 
 # -- General configuration ---------------------------------------------------
 
@@ -86,7 +88,6 @@ exclude_patterns = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
-
 # -- Options for HTML output -------------------------------------------------
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
@@ -121,7 +122,6 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'survivedoc'
 
-
 # -- Options for LaTeX output ------------------------------------------------
 
 latex_elements = {
@@ -150,7 +150,6 @@ latex_documents = [
      'Artem Mavrin', 'manual'),
 ]
 
-
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
@@ -159,7 +158,6 @@ man_pages = [
     (master_doc, 'survive', 'survive Documentation',
      [author], 1)
 ]
-
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -171,7 +169,6 @@ texinfo_documents = [
      author, 'survive', 'One line description of project.',
      'Miscellaneous'),
 ]
-
 
 # -- Extension configuration -------------------------------------------------
 
