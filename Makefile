@@ -1,6 +1,6 @@
 PYTHON := python3
 
-IPYNB := $(shell find "examples" -name "*.ipynb" -maxdepth 1)
+IPYNB := $(shell find . -name "*.ipynb")
 
 .PHONY: all install html test clean ipynb2rst
 
@@ -13,8 +13,8 @@ html: clean ipynb2rst
 	make -C doc html
 
 ipynb2rst: $(IPYNB)
-	for f in examples/*.ipynb; do \
-	  jupyter nbconvert --to rst $$f --output-dir=doc/source/examples/; \
+	for f in $^; do \
+	  jupyter nbconvert --to rst $$f; \
 	done;
 
 test:

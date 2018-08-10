@@ -26,7 +26,7 @@ Moreover, Survive is on the [Python Package Index (PyPI)](https://pypi.org/proje
 
 ## Case Studies
 
-* [Leukemia remission time dataset.](https://github.com/artemmavrin/survive/blob/master/examples/Leukemia_Remission_Time_Dataset.ipynb)
+* [Leukemia remission time dataset.](https://survive-python.readthedocs.io/examples/Leukemia_Remission_Time_Dataset.html)
   A small dataset (42 total observations) separated into two groups with heavy right-censoring in one and none in the other.
-* [Channing House dataset.](https://github.com/artemmavrin/survive/blob/master/examples/Channing_House_Dataset.ipynb)
+* [Channing House dataset.](https://survive-python.readthedocs.io/examples/Channing_House_Dataset.html)
   A slightly larger dataset (462 total observations) separated into two groups with right-censoring and left truncation in both.
