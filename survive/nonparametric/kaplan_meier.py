@@ -11,9 +11,8 @@ from ..utils.validation import check_int
 class KaplanMeier(NonparametricSurvival):
     """Kaplan-Meier survival function estimator.
 
-    The Kaplan-Meier estimator [1]_ is also called the
-    product-limit estimator. Much of this implementation is inspired by the R
-    package ``survival`` [2]_.
+    The Kaplan-Meier estimator [1]_ is also called the product-limit estimator.
+    Much of this implementation is inspired by the R package ``survival`` [2]_.
 
     For a quick introduction to the Kaplan-Meier estimator, see e.g. Section 4.2
     in [3]_ or Section 1.4.1 in [4]_. For a more thorough treatment, see Chapter
@@ -69,8 +68,8 @@ class KaplanMeier(NonparametricSurvival):
 
         f^{-1}(f(p) \pm z \mathrm{SE}(p) f^\prime(p))
 
-    These confidence intervals were proposed in [6]_. We give a table of the
-    supported transformations below.
+    These general types of confidence intervals were proposed in [7]_. We give a
+    table of the supported transformations below.
 
         =========== ===========================
         `conf_type` :math:`f(p)`
@@ -85,15 +84,27 @@ class KaplanMeier(NonparametricSurvival):
     Our implementation also shrinks the intervals to be between 0 and 1 if
     necessary.
 
+    The confidence intervals implemented here are equivalent for large samples
+    (i.e., asymptotically). For small samples (as small as 25 observations with
+    up to 50% censoring away from the right tail), the "log" and "arcsin"
+    confidence intervals have been shown to give close to the correct coverage
+    probability, whereas the "linear" confidence interval needs much larger
+    sample sizes to perform similarly [7]_. For small samples, the "arcsin"
+    intervals tend to be conservative, the "log" intervals tend to be
+    slightly liberal, and the "linear" intervals tend to be very liberal [7]_.
+
+    The "log" intervals were introduced in the first edition of [4]_, and the
+    "arcsin" intervals were introduced in [6]_.
+
     There are several supported ways of computing the standard error
     :math:`\mathrm{SE}(p)` of an estimated survival probability
     :math:`p = \hat{S}(t)`, each corresponding to a different value of
     `var_type`.
 
-    1.  "greenwood" uses the classical Greenwood's formula [7]_.
+    1.  "greenwood" uses the classical Greenwood's formula [8]_.
 
     2.  "aalen-johansen" uses the Poisson moment approximation to the binomial
-        suggested in [8]_. This method requires choosing how to handle tied
+        suggested in [9]_. This method requires choosing how to handle tied
         event times by specifying the parameter `tie_break`. Possible values are
 
             * "discrete"
@@ -107,16 +118,16 @@ class KaplanMeier(NonparametricSurvival):
 
         This choice changes the definition of the Nelson-Aalen estimator
         increment, which consequently changes the definition of the
-        Aalen-Johansen variance estimate. See Sections 3.1.3 and 3.2.2 in [9]_.
+        Aalen-Johansen variance estimate. See Sections 3.1.3 and 3.2.2 in [10]_.
 
         This method is less frequently used than Greenwood's formula, and the
-        two methods are usually close to each other numerically. However, [10]_
+        two methods are usually close to each other numerically. However, [11]_
         recommends using Greenwood's formula because it is less biased and has
         comparable or lower mean squared error.
 
     3.  "bootstrap" uses the bootstrap (repeatedly sampling with replacement
         from the data and estimating the survival curve each time) to estimate
-        the survival function variance [11]_.
+        the survival function variance [12]_.
 
     References
     ----------
@@ -134,25 +145,28 @@ class KaplanMeier(NonparametricSurvival):
         Techniques for Censored and Truncated Data. Second Edition.
         Springer-Verlag, New York (2003) pp. xvi+538.
         `DOI <https://doi.org/10.1007/b97377>`__.
-    .. [6] Ørnulf Borgan and Knut Liestøl. "A note on confidence intervals and
+    .. [6] Vijayan N. Nair.  "Confidence Bands for Survival Functions with
+        Censored Data: A Comparative Study." Technometrics, Volume 26, Number 3,
+        (1984), pp. 265--75. `DOI <https://doi.org/10.2307/1267553>`__.
+    .. [7] Ørnulf Borgan and Knut Liestøl. "A note on confidence intervals and
         bands for the survival function based on transformations." Scandinavian
         Journal of Statistics. Volume 17, Number 1 (1990), pp. 35--41.
         `JSTOR <http://www.jstor.org/stable/4616153>`__.
-    .. [7] M. Greenwood. "The natural duration of cancer". Reports on Public
+    .. [8] M. Greenwood. "The natural duration of cancer". Reports on Public
         Health and Medical Subjects. Volume 33 (1926), pp. 1--26.
-    .. [8] Odd O. Aalen and Søren Johansen. "An empirical transition matrix for
+    .. [9] Odd O. Aalen and Søren Johansen. "An empirical transition matrix for
         non-homogeneous Markov chains based on censored observations."
         Scandinavian Journal of Statistics. Volume 5, Number 3 (1978),
         pp. 141--150. `JSTOR <http://www.jstor.org/stable/4615704>`__.
-    .. [9] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
+    .. [10] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
         Event History Analysis. A Process Point of View. Springer-Verlag, New
         York (2008) pp. xviii+540.
         `DOI <https://doi.org/10.1007/978-0-387-68560-1>`__.
-    .. [10] John P. Klein. "Small sample moments of some estimators of the
+    .. [11] John P. Klein. "Small sample moments of some estimators of the
         variance of the Kaplan-Meier and Nelson-Aalen estimators." Scandinavian
         Journal of Statistics. Volume 18, Number 4 (1991), pp. 333--40.
         `JSTOR <http://www.jstor.org/stable/4616215>`__.
-    .. [11] Bradley Efron. "Censored data and the bootstrap." Journal of the
+    .. [12] Bradley Efron. "Censored data and the bootstrap." Journal of the
         American Statistical Association. Volume 76, Number 374 (1981),
         pp. 312--19. `DOI <https://doi.org/10.2307/2287832>`__.
     """
