@@ -70,7 +70,8 @@ class NelsonAalen(NonparametricEstimator):
         else:
             raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
 
-    def __init__(self, conf_type="log", conf_level=0.95, tie_break="discrete"):
+    def __init__(self, *, conf_type="log", conf_level=0.95,
+                 tie_break="discrete"):
         self.conf_type = conf_type
         self.conf_level = conf_level
         self.tie_break = tie_break
