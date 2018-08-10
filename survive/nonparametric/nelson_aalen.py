@@ -15,7 +15,7 @@ class NelsonAalen(NonparametricEstimator):
 
     Parameters
     ----------
-    conf_type : {'linear'}
+    conf_type : {'log', 'linear'}
         Type of confidence interval for the cumulative hazard estimate to
         report.
 
@@ -25,6 +25,14 @@ class NelsonAalen(NonparametricEstimator):
     tie_break : {'discrete', 'continuous'}
         Specify how to handle tied event times.
 
+    Notes
+    -----
+    The two types of confidence intervals provided here are presented in [3]_.
+    They are based on the asymptotic normality of the Nelson-Aalen estimator and
+    are derived from the delta method by suitable transformations of the
+    estimator. The "log" intervals are more accurate for smaller sample sizes,
+    but both methods are equivalent for large samples [3]_.
+
     References
     ----------
     .. [1] Wayne Nelson. "Theory and Applications of Hazard Plotting for
@@ -33,12 +41,17 @@ class NelsonAalen(NonparametricEstimator):
     .. [2] Odd Aalen. "Nonparametric Inference for a Family of Counting
         Processes". The Annals of Statistics, Volume 6, Number 4 (1978),
         pp. 701--726. `JSTOR <www.jstor.org/stable/2958850>`__.
+    .. [3] Ole Bie, Ørnulf Borgan, and Knut Liestøl. "Confidence Intervals and
+        Confidence Bands for the Cumulative Hazard Rate Function and Their Small
+        Sample Properties." Scandinavian Journal of Statistics, Volume 14,
+        Number 3 (1987), pp. 221--33.
+        `JSTOR <http://www.jstor.org/stable/4616065>`__.
     """
     model_type = "Nelson-Aalen estimator"
     _estimand = "cumulative hazard"
     _estimate0 = 0.
 
-    _conf_types = ("linear",)
+    _conf_types = ("linear", "log")
 
     # How to handle tied event times for the Aalen-Johansen variance estimator
     _tie_breaks = ("continuous", "discrete")
@@ -57,8 +70,7 @@ class NelsonAalen(NonparametricEstimator):
         else:
             raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
 
-    def __init__(self, conf_type="linear", conf_level=0.95,
-                 tie_break="discrete"):
+    def __init__(self, conf_type="log", conf_level=0.95, tie_break="discrete"):
         self.conf_type = conf_type
         self.conf_level = conf_level
         self.tie_break = tie_break
@@ -133,6 +145,12 @@ class NelsonAalen(NonparametricEstimator):
                 c = z * np.sqrt(self.estimate_var_[i])
                 lower = self.estimate_[i] + c
                 upper = self.estimate_[i] - c
+            elif self.conf_type == "log":
+                se = np.sqrt(self.estimate_var_[i])
+                estimate = self.estimate_[i]
+                a = np.exp(z * se / estimate)
+                lower = estimate * a
+                upper = estimate / a
             else:
                 # This should not be reachable
                 raise RuntimeError(
