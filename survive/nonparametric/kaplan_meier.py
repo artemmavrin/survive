@@ -4,12 +4,12 @@ import numpy as np
 import scipy.stats as st
 
 from .base import NonparametricSurvival
-from .. import SurvivalData
+from ..survival_data import SurvivalData
 from ..utils.validation import check_int
 
 
 class KaplanMeier(NonparametricSurvival):
-    """Kaplan-Meier survival function estimator.
+    """Kaplan-Meier nonparametric survival function estimator.
 
     The Kaplan-Meier estimator [1]_ is also called the product-limit estimator.
     Much of this implementation is inspired by the R package ``survival`` [2]_.

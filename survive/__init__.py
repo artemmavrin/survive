@@ -1,9 +1,7 @@
 """Survival analysis in Python."""
 
+from .nonparametric import KaplanMeier
+from .nonparametric import NelsonAalen
 from .survival_data import SurvivalData
-
-import survive.base
-import survive.datasets
-import survive.nonparametric
 
 __version__ = "0.1"

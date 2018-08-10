@@ -18,9 +18,10 @@ Classes
 
 .. autosummary::
     :toctree: generated/
-    :nosignatures:
     :template: class.rst
 
+    KaplanMeier
+    NelsonAalen
     SurvivalData
 
 
@@ -38,7 +39,6 @@ Classes
 
 .. autosummary::
     :toctree: generated/
-    :nosignatures:
     :template: class.rst
 
     base.Fittable
@@ -61,7 +61,6 @@ Functions
 
 .. autosummary::
     :toctree: generated/
-    :nosignatures:
     :template: function.rst
 
     datasets.channing
@@ -75,40 +74,15 @@ Functions
     :no-members:
     :no-inherited-members:
 
-Estimator Classes
+Classes
 -----------------
 
 .. currentmodule:: survive
 
 .. autosummary::
     :toctree: generated/
-    :nosignatures:
-    :template: class.rst
-
-    nonparametric.KaplanMeier
-    nonparametric.NelsonAalen
-
-Summary Classes
----------------
-
-.. currentmodule:: survive
-
-.. autosummary::
-    :toctree: generated/
-    :nosignatures:
-    :template: class.rst
-
-    nonparametric.NonparametricEstimatorSummary
-
-Abstract Base Classes
----------------------
-
-.. currentmodule:: survive
-
-.. autosummary::
-    :toctree: generated/
-    :nosignatures:
     :template: class.rst
 
     nonparametric.NonparametricEstimator
     nonparametric.NonparametricSurvival
+    nonparametric.NonparametricEstimatorSummary

@@ -5,7 +5,7 @@ import abc
 import numpy as np
 import pandas as pd
 
-from .. import SurvivalData
+from ..survival_data import SurvivalData
 from ..base import Model, Fittable, Predictor, Summary
 from ..utils.validation import (check_bool, check_colors, check_data_1d,
                                 check_float)
@@ -329,7 +329,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
 
 class NonparametricSurvival(NonparametricEstimator):
-    """Base class for nonparametric survival function estimators."""
+    """Abstract base class for nonparametric survival function estimators."""
     _estimand = "survival function"
     _estimate0 = np.float_(1.)
 

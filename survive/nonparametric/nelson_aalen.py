@@ -4,11 +4,11 @@ import numpy as np
 import scipy.stats as st
 
 from .base import NonparametricEstimator
-from .. import SurvivalData
+from ..survival_data import SurvivalData
 
 
 class NelsonAalen(NonparametricEstimator):
-    """Nelson-Aalen cumulative hazard estimator.
+    """Nelson-Aalen nonparametric cumulative hazard estimator.
 
     This estimator was suggested by Nelson in [1]_ in the context of
     reliability, and it was rediscovered and generalized by Aalen in [2]_.
