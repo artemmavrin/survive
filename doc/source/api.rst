@@ -86,6 +86,7 @@ Estimator Classes
     :template: class.rst
 
     nonparametric.KaplanMeier
+    nonparametric.NelsonAalen
 
 Summary Classes
 ---------------
