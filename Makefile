@@ -1,7 +1,5 @@
 PYTHON := python3
 
-IPYNB := $(shell find . -name "*.ipynb")
-
 .PHONY: all install html test clean ipynb2rst
 
 all: install html
@@ -11,11 +9,6 @@ install: clean
 
 html: clean ipynb2rst
 	make -C doc html
-
-ipynb2rst: $(IPYNB)
-	for f in $^; do \
-	  jupyter nbconvert --to rst $$f; \
-	done;
 
 test:
 	${PYTHON} -m unittest discover --verbose
