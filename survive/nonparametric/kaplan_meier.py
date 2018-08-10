@@ -9,7 +9,7 @@ from ..utils.validation import check_int
 
 
 class KaplanMeier(NonparametricSurvival):
-    """Nonparametric survival function estimator.
+    """Kaplan-Meier survival function estimator.
 
     The Kaplan-Meier estimator [1]_ is also called the
     product-limit estimator. Much of this implementation is inspired by the R
@@ -95,13 +95,16 @@ class KaplanMeier(NonparametricSurvival):
     2.  "aalen-johansen" uses the Poisson moment approximation to the binomial
         suggested in [8]_. This method requires choosing how to handle tied
         event times by specifying the parameter `tie_break`. Possible values are
+
             * "discrete"
                 Tied event times are possible and are treated as simultaneous.
+
             * "continuous"
                 True event times almost surely don't coincide, and any observed
                 ties are due to grouping or rounding. Tied event times will be
                 treated as if each one occurred in succession, each one
                 immediately following the previous one.
+
         This choice changes the definition of the Nelson-Aalen estimator
         increment, which consequently changes the definition of the
         Aalen-Johansen variance estimate. See Sections 3.1.3 and 3.2.2 in [9]_.
@@ -120,9 +123,9 @@ class KaplanMeier(NonparametricSurvival):
     .. [1] E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
         observations". Journal of the American Statistical Association, Volume
         53, Issue 282 (1958), pp. 457--481.
-        `DOI <https://doi.org/10.2307/2281868>`_.
+        `DOI <https://doi.org/10.2307/2281868>`__.
     .. [2] Terry M. Therneau. A Package for Survival Analysis in S. version 2.38
-        (2015). `CRAN <https://CRAN.R-project.org/package=survival>`_.
+        (2015). `CRAN <https://CRAN.R-project.org/package=survival>`__.
     .. [3] D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall,
         London (1984), pp. ix+201.
     .. [4] John D. Kalbfleisch and Ross L. Prentice. The Statistical Analysis of
@@ -130,28 +133,28 @@ class KaplanMeier(NonparametricSurvival):
     .. [5] John P. Klein and Melvin L. Moeschberger. Survival Analysis.
         Techniques for Censored and Truncated Data. Second Edition.
         Springer-Verlag, New York (2003) pp. xvi+538.
-        `DOI <https://doi.org/10.1007/b97377>`_.
+        `DOI <https://doi.org/10.1007/b97377>`__.
     .. [6] Ørnulf Borgan and Knut Liestøl. "A note on confidence intervals and
         bands for the survival function based on transformations." Scandinavian
         Journal of Statistics. Volume 17, Number 1 (1990), pp. 35--41.
-        `JSTOR <http://www.jstor.org/stable/4616153>`_.
+        `JSTOR <http://www.jstor.org/stable/4616153>`__.
     .. [7] M. Greenwood. "The natural duration of cancer". Reports on Public
         Health and Medical Subjects. Volume 33 (1926), pp. 1--26.
     .. [8] Odd O. Aalen and Søren Johansen. "An empirical transition matrix for
         non-homogeneous Markov chains based on censored observations."
         Scandinavian Journal of Statistics. Volume 5, Number 3 (1978),
-        pp. 141--150. `JSTOR <http://www.jstor.org/stable/4615704>`_.
+        pp. 141--150. `JSTOR <http://www.jstor.org/stable/4615704>`__.
     .. [9] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
         Event History Analysis. A Process Point of View. Springer-Verlag, New
         York (2008) pp. xviii+540.
-        `DOI <https://doi.org/10.1007/978-0-387-68560-1>`_.
+        `DOI <https://doi.org/10.1007/978-0-387-68560-1>`__.
     .. [10] John P. Klein. "Small sample moments of some estimators of the
         variance of the Kaplan-Meier and Nelson-Aalen estimators." Scandinavian
         Journal of Statistics. Volume 18, Number 4 (1991), pp. 333--40.
-        `JSTOR <http://www.jstor.org/stable/4616215>`_.
+        `JSTOR <http://www.jstor.org/stable/4616215>`__.
     .. [11] Bradley Efron. "Censored data and the bootstrap." Journal of the
         American Statistical Association. Volume 76, Number 374 (1981),
-        pp. 312--19. `DOI <https://doi.org/10.2307/2287832>`_.
+        pp. 312--19. `DOI <https://doi.org/10.2307/2287832>`__.
     """
     model_type = "Kaplan-Meier estimator"
 

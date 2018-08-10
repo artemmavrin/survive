@@ -444,14 +444,9 @@ class SurvivalData(object):
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
-            Possible types:
-                * list or tuple
-                    Sequence of valid matplotlib colors to cycle through.
-                * dict
-                    Should be a dictionary with groups as keys and valid
-                    matplotlib colors as values.
-                * str
-                    Name of a matplotlib colormap.
+            This can be a sequence of valid matplotlib colors to cycle through,
+            or a dictionary mapping group labels to matplotlib colors, or the
+            name of a matplotlib colormap.
 
         palette : str, optional
             Name of a seaborn color palette. Requires seaborn to be installed.
@@ -541,14 +536,9 @@ class SurvivalData(object):
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
-            Possible types:
-                * list or tuple
-                    Sequence of valid matplotlib colors to cycle through.
-                * dict
-                    Should be a dictionary with groups as keys and valid
-                    matplotlib colors as values.
-                * str
-                    Name of a matplotlib colormap.
+            This can be a sequence of valid matplotlib colors to cycle through,
+            or a dictionary mapping group labels to matplotlib colors, or the
+            name of a matplotlib colormap.
 
         palette : str, optional
             Name of a seaborn color palette. Requires seaborn to be installed.

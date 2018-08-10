@@ -1,14 +1,21 @@
 PYTHON := python3
 
-.PHONY: all install html test clean
+IPYNB := $(shell find "examples" -name "*.ipynb" -max-depth 1)
+
+.PHONY: all install html test clean ipynb2rst
 
 all: install html
 
 install: clean
 	${PYTHON} setup.py install
 
-html: clean
+html: clean ipynb2rst
 	make -C doc html
+
+ipynb2rst: $(IPYNB)
+	for f in examples/*.ipynb; do \
+	  jupyter nbconvert --to rst $$f --output-dir=doc/source/examples/; \
+	done;
 
 test:
 	${PYTHON} -m unittest discover --verbose

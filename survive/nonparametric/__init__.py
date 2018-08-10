@@ -1,4 +1,4 @@
-"""Univariate survival analysis"""
+"""Nonparametric estimators."""
 
 from .base import NonparametricEstimatorSummary
 from .kaplan_meier import KaplanMeier

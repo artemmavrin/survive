@@ -95,7 +95,7 @@ def channing():
     ----------
     .. [1] Angelo Canty and Brian Ripley. boot: Bootstrap R (S-Plus) Functions.
         R package version 1.3-20 (2017).
-        `CRAN <https://cran.r-project.org/web/packages/boot/index.html>`_.
+        `CRAN <https://cran.r-project.org/web/packages/boot/index.html>`__.
     """
     return pd.read_csv(_full_filename("channing.csv"), header=0,
                        dtype=dict(sex="category", entry="int", exit="int",

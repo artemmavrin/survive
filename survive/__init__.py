@@ -1,4 +1,4 @@
-"""Survival analysis in Python"""
+"""Survival analysis in Python."""
 
 from .survival_data import SurvivalData
 
