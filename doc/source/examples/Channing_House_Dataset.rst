@@ -410,13 +410,7 @@ time, say 68 or 80 years (816 or 960 months).
 
     km68 = KaplanMeier()
     km68.fit(time="exit", entry="entry", status="status", group="sex", df=channing,
-             min_time=816)
-
-
-.. parsed-literal::
-
-    /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages/survive-0.0.0-py3.7.egg/survive/survival_data.py:174: UserWarning: Ignoring 5 observations where entry >= time.
-      f"Ignoring {np.sum(~mask)} observations where entry >= time.")
+             min_time=816, warn=False)
 
 
 

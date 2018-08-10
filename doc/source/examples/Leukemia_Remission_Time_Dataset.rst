@@ -538,6 +538,10 @@ each group. It can be printed to display all the information at once.
     
     control
     
+    total  events  censored
+                           
+       21      21         0
+    
     time  events  at risk  estimate  std. error  95% c.i. lower  95% c.i. upper
        1       2       21  0.904762    0.064056        0.670046        0.975294
        2       2       19  0.809524    0.085689        0.568905        0.923889
@@ -553,6 +557,10 @@ each group. It can be printed to display all the information at once.
       23       1        1  0.000000         NaN             NaN             NaN
     
     treatment
+    
+    total  events  censored
+                           
+       21       9        12
     
     time  events  at risk  estimate  std. error  95% c.i. lower  95% c.i. upper
        6       3       21  0.857143    0.076360        0.619718        0.951552

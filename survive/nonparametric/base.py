@@ -474,8 +474,10 @@ class NonparametricEstimatorSummary(Summary):
     def __repr__(self):
         """Return a string representation of the summary."""
         summary = super(NonparametricEstimatorSummary, self).__repr__()
+        describe = self.model.data_.describe
         for group in self.model.data_.group_labels:
             if self.model.data_.n_groups > 1:
                 summary += f"\n\n{group}"
+            summary += f"\n\n{describe.loc[[group]].to_string(index=False)}"
             summary += f"\n\n{self.table(group).to_string(index=False)}"
         return summary
