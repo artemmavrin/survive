@@ -10,6 +10,9 @@ from .. import SurvivalData
 class NelsonAalen(NonparametricEstimator):
     """Nelson-Aalen cumulative hazard estimator.
 
+    This estimator was suggested by Nelson in [1]_ in the context of
+    reliability, and it was rediscovered and generalized by Aalen in [2]_.
+
     Parameters
     ----------
     conf_type : {'linear'}
@@ -21,6 +24,15 @@ class NelsonAalen(NonparametricEstimator):
 
     tie_break : {'discrete', 'continuous'}
         Specify how to handle tied event times.
+
+    References
+    ----------
+    .. [1] Wayne Nelson. "Theory and Applications of Hazard Plotting for
+        Censored Failure Data". Technometrics, Volume 14, Number 4 (1972),
+        pp. 945--966. `JSTOR <www.jstor.org/stable/1267144>`__.
+    .. [2] Odd Aalen. "Nonparametric Inference for a Family of Counting
+        Processes". The Annals of Statistics, Volume 6, Number 4 (1978),
+        pp. 701--726. `JSTOR <www.jstor.org/stable/2958850>`__.
     """
     model_type = "Nelson-Aalen estimator"
     _estimand = "cumulative hazard"
