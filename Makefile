@@ -1,6 +1,6 @@
 PYTHON := python3
 
-IPYNB := $(shell find "examples" -name "*.ipynb" -max-depth 1)
+IPYNB := $(shell find "examples" -name "*.ipynb" -maxdepth 1)
 
 .PHONY: all install html test clean ipynb2rst
 
