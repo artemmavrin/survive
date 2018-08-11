@@ -17,6 +17,7 @@ analysis of survival, lifetime, and event data.
 
     installation
     examples
+    theory
     api
 
 Indices and tables
