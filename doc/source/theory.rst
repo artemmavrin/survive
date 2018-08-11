@@ -2,7 +2,7 @@
 Background and Theory
 =====================
 
-This page aims to quickly cover some basic survival analysis theory.
+This page aims to quickly cover some basic survival analysis.
 
 .. note::
 
@@ -15,13 +15,19 @@ Survival Analysis Setup
 Suppose we are interested in a particular time-to-event distribution (e.g.,
 time until death, time until disease occurrence or recovery, or time until
 failure in a mechanical system).
-This distribution is completely determined by its *survival function*
-:math:`S(t) = \Pr(X > t)`, where :math:`X` is the time-to-event (a positive
-random variable), and :math:`t` is a fixed positive time.
+The phrase "time-to-event" can mean nearly any positive quantity being measured,
+not necessarily time.
+
+The time-to-event distribution is completely determined by its
+*survival function* :math:`S(t) = \Pr(X > t)`, where :math:`X` is the
+time-to-event (a positive random variable), and :math:`t` is a positive time.
+The survival function might be of interest itself since it answers questions
+like, "what is the probability that a cancer patient will survive at least five
+more years?" or "what is the probability that this machine part won't break in
+the next six months?"
 
 Suppose we have :math:`n` individuals with independent and identically
-distributed times-to-event :math:`X_1, \ldots, X_n` with survival function
-:math:`S`.
+distributed event :math:`X_1, \ldots, X_n` with survival function :math:`S`.
 If we could observe :math:`X_1, \ldots, X_n`, then one obvious candidate for
 estimating :math:`S(t)` is the *empirical survival function*:
 
@@ -32,26 +38,54 @@ estimating :math:`S(t)` is the *empirical survival function*:
 This is just the number of individuals observed to survive past time :math:`t`
 divided by the sample size :math:`n`.
 (Here :math:`\mathbf{1}_A` denotes the indicator of an event :math:`A`.)
+This unbiased, consistent, and asymptotically normal estimator is nevertheless
+not suitable for many situations of interest in survival analysis.
+The main problem is that it relies on all the event times :math:`X_1,\ldots,X_n`
+being observable.
 
 Censoring and Truncation
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
-However, it is common in practice that not all the times
-:math:`X_1, \ldots, X_n` are observed.
-For example, a study might end before a patient recovers from a disease, in
-which case the true recovery time is not known.
-Alternatively, a patient whose time until death from cancer is being observed
-might die from a different disease, so the death-from-cancer time will again not
-be known.
-In these two cases, the true time-to-event is not known, but a lower bound for
-it is available.
+It is common in practice that not all the times :math:`X_1, \ldots, X_n` are
+observed.
+We list some possible examples.
+
+* A clinical trial investigating a disease treatment might end before a patient
+  recovers from the disease, in which case the patient's true recovery time is
+  not known.
+
+* A patient whose time until death from cancer is being monitored might die from
+  a different disease, so the patient's death-from-cancer time will not be
+  known.
+
+* In engineering, a reliability experiment might be stopped after a
+  predetermined number of parts fail.
+  A part that is still operational after this time will not have its failure
+  time observed.
+
+In these cases, the true time-to-event is not known, but a lower bound for it is
+available.
 This situation is called *right-censoring*.
 
-Another source of incomplete information is *left-truncation*, in which an
-individual's time-to-event may only be observed if it exceeds a certain time.
-For example, if we are observing the age at death of residents in a retirement
-home, then we do not observe the ages at death of individuals who died before
-becoming residents.
+Another source of incomplete information is *left-truncation* (also known as
+*delayed entry*), in which an individual's time-to-event may only be observed if
+it exceeds a certain time.
+Some examples:
+
+* Patients for a certain disease might only be observed after the disease has
+  been diagnosed.
+  A patient who died from the disease before diagnosis is unknown to
+  investigators.
+
+* If we are observing the age at death of residents in a retirement home, then
+  we do not observe the ages at death of individuals who died before becoming
+  residents.
+
+* If we are measuring the diameters of particles with a microscope, then only
+  particles large enough to be detected by the microscope will be observed.
+
+There are other types of censoring and truncation, but for now we will focus on
+right-censoring and left-truncation, the most common variants.
 
 When there is right-censoring or left-truncation, the empirical survival
 function is not a suitable estimator of the survival function :math:`S` because
@@ -120,7 +154,7 @@ Stochastic integrals with respect to :math:`N` can be easily computed as sums:
 
 .. math::
 
-    \int_0^t H(s) \, dN(s) = \sum_{j : T_j \leq t} H(T_j) \Delta N(T_j)
+    \int_0^t H(s) \, dN(s) = \sum_{j : T_j \leq t} H(T_j) \Delta N(T_j).
 
 The Kaplan-Meier Estimator
 --------------------------
