@@ -348,12 +348,12 @@ class NonparametricSurvival(NonparametricEstimator):
 
         For a probability level :math:`p` between 0 and 1, the empirical
         :math:`p`-quantile of the time-to-event distribution with estimated
-        survival function :math:`\hat{S}(t)` is defined to be the time at which
-        the horizontal line at height :math:`1-p` intersects with the estimated
-        survival curve. If such a time is not unique, then instead there is a
-        time interval on which the estimated survival curve is flat and
-        coincides with the horizontal line at height :math:`1-p`. In this case
-        the midpoint of this interval is taken to be the empirical
+        survival function :math:`\widehat{S}(t)` is defined to be the time at
+        which the horizontal line at height :math:`1-p` intersects with the
+        estimated survival curve. If such a time is not unique, then instead
+        there is a time interval on which the estimated survival curve is flat
+        and coincides with the horizontal line at height :math:`1-p`. In this
+        case the midpoint of this interval is taken to be the empirical
         :math:`p`-quantile estimate (this is just one of many possible
         conventions, and the one used by the R package ``survival``). If the
         survival function estimate never gets as low as :math:`1-p`, then the
@@ -427,26 +427,33 @@ class NonparametricEstimatorSummary(Summary):
         -------
         table : pandas.DataFrame
             Summary table with the following columns.
-                * time
-                    The distinct event times for the group.
-                * events
-                    Number of events at each distinct event time for the group.
-                * at risk
-                    Number of individuals at risk (i.e., entered but not yet
-                    censored or failed) immediately before each distinct event
-                    time for the group.
-                * estimate
-                    The estimate at each event time.
-                * std. err.
-                    The standard error of the estimate at each event time.
-                * c.i. lower
-                    Lower confidence interval bound for the estimate at each
-                    event time. The actual name of this column will contain the
-                    confidence level.
-                * c.i. upper
-                    Upper confidence interval bound for the estimate at each
-                    event time. The actual name of this column will contain the
-                    confidence level.
+
+            time
+                The distinct event times for the group.
+
+            events
+                Number of events at each distinct event time for the group.
+
+            at risk
+                Number of individuals at risk (i.e., entered but not yet
+                censored or failed) immediately before each distinct event time
+                for the group.
+
+            estimate
+                The estimate at each event time.
+
+            std. err.
+                The standard error of the estimate at each event time.
+
+            c.i. lower
+                Lower confidence interval bound for the estimate at each event
+                time. The actual name of this column will contain the confidence
+                level.
+                
+            c.i. upper
+                Upper confidence interval bound for the estimate at each event
+                time. The actual name of this column will contain the confidence
+                level.
         """
         if group not in self.model.data_.group_labels:
             raise ValueError(f"Not a known group label: {group}.")

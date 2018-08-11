@@ -87,21 +87,27 @@ class SurvivalData(object):
 
     events : dict
         Mapping of group labels to DataFrames with columns:
-            * time
-                Distinct event times for that group
-            * n_events
-                Number of events at each event time.
-            * n_at_risk
-                Number of individuals at risk at each event time.
+
+        time
+            Distinct event times for that group
+
+        n_events
+            Number of events at each event time.
+
+        n_at_risk
+            Number of individuals at risk at each event time.
 
     censor : dict
         Mapping of group labels to DataFrames with columns:
-            * time
-                Distinct censored times for that group
-            * n_censor
-                Number of individuals censored at each censored time.
-            * n_at_risk
-                Number of individuals at risk at each censored time.
+
+        time
+            Distinct censored times for that group
+
+        n_censor
+            Number of individuals censored at each censored time.
+
+        n_at_risk
+            Number of individuals at risk at each censored time.
     """
     time: np.ndarray
     status: np.ndarray
@@ -231,12 +237,15 @@ class SurvivalData(object):
         ----------
         **kwargs : keyword arguments
             Formatting options. Allowed arguments:
-                * max_line_length : int
-                    Specify the maximum length of a single line.
-                * separator : str
-                    Specify how to separate individual times.
-                * censor_marker : str
-                    String to mark censored times.
+
+            max_line_length : int
+                Specify the maximum length of a single line.
+
+            separator : str
+                Specify how to separate individual times.
+
+            censor_marker : str
+                String to mark censored times.
         """
         for k, v in kwargs.items():
             if k in _DEFAULT_FORMATTING.keys():
@@ -344,12 +353,15 @@ class SurvivalData(object):
         -------
         pandas.DataFrame
             A DataFrame with a row for every group. The columns are
-                * total
-                    The total number of observations within a group
-                * events
-                    The number of events within a group
-                * censored
-                    The number of censored events within a group
+
+            total
+                The total number of observations within a group
+
+            events
+                The number of events within a group
+
+            censored
+                The number of censored events within a group
         """
         total = np.empty(self.n_groups, dtype=np.int_)
         events = np.empty(self.n_groups, dtype=np.int_)

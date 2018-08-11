@@ -27,11 +27,25 @@ class NelsonAalen(NonparametricEstimator):
 
     Notes
     -----
-    The two types of confidence intervals provided here are presented in [3]_.
-    They are based on the asymptotic normality of the Nelson-Aalen estimator and
-    are derived from the delta method by suitable transformations of the
-    estimator. The "log" intervals are more accurate for smaller sample sizes,
-    but both methods are equivalent for large samples [3]_.
+    The way that tie breaks are handled affects how the Nelson-Aalen estimator
+    and its variance estimates are computed.
+
+    * If `tie_break` is "discrete", then it is assumed that tied events are
+      possible, and we chose to implement formulas (3.13) and (3.16) in [3]_ for
+      the Nelson-Aalen estimator and its variance.
+
+    * If `tie_break` is "continuous", then it is assumed that tied events only
+      happen due to grouping or rounding, and the tied times are treated as if
+      they happened in succession, each one immediately following the previous
+      one. We chose to implement formulas (3.12) and (3.15) in [3]_ in this
+      case.
+
+    The two types of confidence intervals ("log" and "linear") provided here are
+    presented in [4]_. They are based on the asymptotic normality of the
+    Nelson-Aalen estimator and are derived from the delta method by suitable
+    transformations of the estimator. The "log" intervals are more accurate for
+    smaller sample sizes, but both methods are equivalent for large samples
+    [4]_.
 
     References
     ----------
@@ -41,7 +55,11 @@ class NelsonAalen(NonparametricEstimator):
     .. [2] Odd Aalen. "Nonparametric Inference for a Family of Counting
         Processes". The Annals of Statistics, Volume 6, Number 4 (1978),
         pp. 701--726. `JSTOR <www.jstor.org/stable/2958850>`__.
-    .. [3] Ole Bie, Ørnulf Borgan, and Knut Liestøl. "Confidence Intervals and
+    .. [3] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
+        Event History Analysis. A Process Point of View. Springer-Verlag, New
+        York (2008) pp. xviii+540.
+        `DOI <https://doi.org/10.1007/978-0-387-68560-1>`__.
+    .. [4] Ole Bie, Ørnulf Borgan, and Knut Liestøl. "Confidence Intervals and
         Confidence Bands for the Cumulative Hazard Rate Function and Their Small
         Sample Properties." Scandinavian Journal of Statistics, Volume 14,
         Number 3 (1987), pp. 221--33.

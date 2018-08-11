@@ -9,7 +9,7 @@ from ..utils.validation import check_int
 
 
 class KaplanMeier(NonparametricSurvival):
-    """Kaplan-Meier nonparametric survival function estimator.
+    r"""Kaplan-Meier nonparametric survival function estimator.
 
     The Kaplan-Meier estimator [1]_ is also called the product-limit estimator.
     Much of this implementation is inspired by the R package ``survival`` [2]_.
@@ -47,29 +47,108 @@ class KaplanMeier(NonparametricSurvival):
 
     Notes
     -----
-    Confidence intervals for a survival probability estimate
-    :math:`p=\hat{S}(t)` are computed using normal approximation confidence
-    intervals for a strictly increasing differentiable transformation
-    :math:`y=f(p)` using the delta method:
-
-        If :math:`\mathrm{SE}(p)` is the standard error of :math:`p`, then the
-        standard error of :math:`f(p)` is :math:`\mathrm{SE}(p) f^\prime(p)`.
-
-    Consequently, a normal approximation confidence interval for :math:`f(p)` is
+    Suppose we have observed right-censored and left-truncated event times. Let
+    :math:`T_1 < T_2 < \cdots` denote the ordered distinct event times. Let
+    :math:`\Delta N(T_j)` be the number of events observed at time :math:`T_j`,
+    and let :math:`Y(T_j)` denote the number of individuals at risk (under
+    observation but not yet censored or "dead") at time :math:`T_j`. The
+    *Kaplan-Meier estimator* estimates the survival function :math:`S(t)` of the
+    time-to-event distribution by
 
     .. math::
 
-        f(p) \pm z \mathrm{SE}(p) f^\prime(p)
+        \widehat{S}(t)
+        = \prod_{j : T_j \leq t} \left(1 - \frac{\Delta N(T_j)}{Y(T_j)}\right).
+
+    There are several supported ways of estimating the Kaplan-Meier variance
+    :math:`\mathrm{Var}(\widehat{S}(t))`, each one corresponding to a different
+    value of `var_type`:
+
+    "greenwood"
+        This is the classical Greenwood's formula [6]_:
+
+        .. math::
+
+            \widehat{\mathrm{Var}}(\widehat{S}(t))
+            = \widehat{S}(t)^2 \sum_{j : T_j \leq t}
+            \frac{\Delta N(T_j)}{Y(T_j) (Y(T_j) - \Delta N(T_j))}.
+
+    "aalen-johansen"
+        This uses the Poisson moment approximation to the binomial suggested in
+        [7]_. This method requires choosing how to handle tied event times by
+        specifying the parameter `tie_break`. See Sections 3.1.3 and 3.2.2 in
+        [8]_. Possible values are
+
+        "discrete"
+            Tied event times are possible and are treated as simultaneous. The
+            variance estimate is
+
+            .. math::
+
+                \widehat{\mathrm{Var}}(\widehat{S}(t))
+                = \widehat{S}(t)^2 \sum_{j : T_j \leq t}
+                \frac{\Delta N(T_j)}{Y(T_j)^2}.
+
+        "continuous"
+            True event times almost surely don't coincide, and any observed ties
+            are due to grouping or rounding. Tied event times will be treated as
+            if each one occurred in succession, each one immediately following
+            the previous one. The variance estimate is
+
+            .. math::
+
+                \widehat{\mathrm{Var}}(\widehat{S}(t))
+                = \widehat{S}(t)^2 \sum_{j : T_j \leq t}
+                \sum_{k=0}^{\Delta N(T_j) - 1}
+                \frac{1}{\left(Y(T_j) - k\right)^2}.
+
+        This method is less frequently used than Greenwood's formula, and the
+        two methods are usually close to each other numerically. However, [9]_
+        recommends using Greenwood's formula because it is less biased and has
+        comparable or lower mean squared error.
+
+    "bootstrap"
+        This uses the bootstrap to estimate the survival function variance
+        [10]_. Specifically, one chooses a positive integer :math:`B` (the
+        number of bootstrap samples `n_boot`), forms :math:`B` bootstrap samples
+        by sampling with replacement from the data, and computes the
+        Kaplan-Meier estimate :math:`\widehat{S}_b^*(t)` for each time :math:`t`
+        and each :math:`b=1,\ldots,B`. The resulting variance estimate is
+
+        .. math::
+
+            \widehat{\mathrm{Var}}(\widehat{S}(t))
+            = \frac{1}{B} \sum_{b=1}^B \left(\widehat{S}_b^*(t)
+            - \frac{1}{B} \sum_{c=1}^B \widehat{S}_c^*(t)\right)^2
+
+    Having chosen a variance estimate, we can estimate the standard error by
+
+    .. math ::
+
+        \widehat{\mathrm{SE}}(\widehat{S}(t))
+        = \sqrt{\widehat{\mathrm{Var}}(\widehat{S}(t))}.
+
+    Confidence intervals for :math:`p=\widehat{S}(t)` exploit the asymptotic
+    normality of the Kaplan-Meier estimator by choosing a strictly increasing
+    and differentiable transformation :math:`f(p)` and applying the delta
+    method, which which states that :math:`f(p)` is also asymptotically normal,
+    with standard error :math:`\mathrm{SE}(p) f^\prime(p)`. Consequently, a
+    normal approximation confidence interval for :math:`f(p)` is
+
+    .. math::
+
+        f(p) \pm z \widehat{\mathrm{SE}}(p) f^\prime(p)
 
     where :math:`z` is the (1-`conf_level`)/2-quantile of the standard normal
     distribution. A confidence interval for :math:`p` is then
 
     .. math::
 
-        f^{-1}(f(p) \pm z \mathrm{SE}(p) f^\prime(p))
+        f^{-1}\left(f(p) \pm z \widehat{\mathrm{SE}}(p) f^\prime(p)\right)
 
-    These general types of confidence intervals were proposed in [7]_. We give a
-    table of the supported transformations below.
+    These general types of confidence intervals were proposed in [11]_. Our
+    implementation also shrinks the intervals to be between 0 and 1 if
+    necessary. We list the supported transformations below.
 
         =========== ===========================
         `conf_type` :math:`f(p)`
@@ -78,56 +157,20 @@ class KaplanMeier(NonparametricSurvival):
         "log"       :math:`\log(p)`
         "log-log"   :math:`-\log(-\log(p))`
         "logit"     :math:`\log(p/(1-p))`
-        "arcsin"    :math:`\sin^{-1}(\sqrt{p})`
+        "arcsin"    :math:`\arcsin(\sqrt{p})`
         =========== ===========================
-
-    Our implementation also shrinks the intervals to be between 0 and 1 if
-    necessary.
 
     The confidence intervals implemented here are equivalent for large samples
     (i.e., asymptotically). For small samples (as small as 25 observations with
     up to 50% censoring away from the right tail), the "log" and "arcsin"
     confidence intervals have been shown to give close to the correct coverage
     probability, whereas the "linear" confidence interval needs much larger
-    sample sizes to perform similarly [7]_. For small samples, the "arcsin"
+    sample sizes to perform similarly [11]_. For small samples, the "arcsin"
     intervals tend to be conservative, the "log" intervals tend to be
-    slightly liberal, and the "linear" intervals tend to be very liberal [7]_.
+    slightly liberal, and the "linear" intervals tend to be very liberal [11]_.
 
     The "log" intervals were introduced in the first edition of [4]_, and the
-    "arcsin" intervals were introduced in [6]_.
-
-    There are several supported ways of computing the standard error
-    :math:`\mathrm{SE}(p)` of an estimated survival probability
-    :math:`p = \hat{S}(t)`, each corresponding to a different value of
-    `var_type`.
-
-    1.  "greenwood" uses the classical Greenwood's formula [8]_.
-
-    2.  "aalen-johansen" uses the Poisson moment approximation to the binomial
-        suggested in [9]_. This method requires choosing how to handle tied
-        event times by specifying the parameter `tie_break`. Possible values are
-
-            * "discrete"
-                Tied event times are possible and are treated as simultaneous.
-
-            * "continuous"
-                True event times almost surely don't coincide, and any observed
-                ties are due to grouping or rounding. Tied event times will be
-                treated as if each one occurred in succession, each one
-                immediately following the previous one.
-
-        This choice changes the definition of the Nelson-Aalen estimator
-        increment, which consequently changes the definition of the
-        Aalen-Johansen variance estimate. See Sections 3.1.3 and 3.2.2 in [10]_.
-
-        This method is less frequently used than Greenwood's formula, and the
-        two methods are usually close to each other numerically. However, [11]_
-        recommends using Greenwood's formula because it is less biased and has
-        comparable or lower mean squared error.
-
-    3.  "bootstrap" uses the bootstrap (repeatedly sampling with replacement
-        from the data and estimating the survival curve each time) to estimate
-        the survival function variance [12]_.
+    "arcsin" intervals were introduced in [12]_.
 
     References
     ----------
@@ -145,30 +188,30 @@ class KaplanMeier(NonparametricSurvival):
         Techniques for Censored and Truncated Data. Second Edition.
         Springer-Verlag, New York (2003) pp. xvi+538.
         `DOI <https://doi.org/10.1007/b97377>`__.
-    .. [6] Vijayan N. Nair.  "Confidence Bands for Survival Functions with
-        Censored Data: A Comparative Study." Technometrics, Volume 26, Number 3,
-        (1984), pp. 265--75. `DOI <https://doi.org/10.2307/1267553>`__.
-    .. [7] Ørnulf Borgan and Knut Liestøl. "A note on confidence intervals and
-        bands for the survival function based on transformations." Scandinavian
-        Journal of Statistics. Volume 17, Number 1 (1990), pp. 35--41.
-        `JSTOR <http://www.jstor.org/stable/4616153>`__.
-    .. [8] M. Greenwood. "The natural duration of cancer". Reports on Public
+    .. [6] M. Greenwood. "The natural duration of cancer". Reports on Public
         Health and Medical Subjects. Volume 33 (1926), pp. 1--26.
-    .. [9] Odd O. Aalen and Søren Johansen. "An empirical transition matrix for
+    .. [7] Odd O. Aalen and Søren Johansen. "An empirical transition matrix for
         non-homogeneous Markov chains based on censored observations."
         Scandinavian Journal of Statistics. Volume 5, Number 3 (1978),
         pp. 141--150. `JSTOR <http://www.jstor.org/stable/4615704>`__.
-    .. [10] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
+    .. [8] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
         Event History Analysis. A Process Point of View. Springer-Verlag, New
         York (2008) pp. xviii+540.
         `DOI <https://doi.org/10.1007/978-0-387-68560-1>`__.
-    .. [11] John P. Klein. "Small sample moments of some estimators of the
+    .. [9] John P. Klein. "Small sample moments of some estimators of the
         variance of the Kaplan-Meier and Nelson-Aalen estimators." Scandinavian
         Journal of Statistics. Volume 18, Number 4 (1991), pp. 333--40.
         `JSTOR <http://www.jstor.org/stable/4616215>`__.
-    .. [12] Bradley Efron. "Censored data and the bootstrap." Journal of the
+    .. [10] Bradley Efron. "Censored data and the bootstrap." Journal of the
         American Statistical Association. Volume 76, Number 374 (1981),
         pp. 312--19. `DOI <https://doi.org/10.2307/2287832>`__.
+    .. [11] Ørnulf Borgan and Knut Liestøl. "A note on confidence intervals and
+        bands for the survival function based on transformations." Scandinavian
+        Journal of Statistics. Volume 17, Number 1 (1990), pp. 35--41.
+        `JSTOR <http://www.jstor.org/stable/4616153>`__.
+    .. [12] Vijayan N. Nair.  "Confidence Bands for Survival Functions with
+        Censored Data: A Comparative Study." Technometrics, Volume 26, Number 3,
+        (1984), pp. 265--75. `DOI <https://doi.org/10.2307/1267553>`__.
     """
     model_type = "Kaplan-Meier estimator"
 
