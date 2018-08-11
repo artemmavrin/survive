@@ -41,28 +41,50 @@ class TestKaplanMeier(unittest.TestCase):
         self.assertEqual(km.data_.n_groups, 1)
 
         # Check estimated survival probabilities
-        data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
-        survival = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0., 0.]
-        np.testing.assert_almost_equal(km.predict(data), survival)
+        x = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
+        y_true = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0., 0.]
+        y_true = np.reshape(y_true, (-1, 1))
+        y_pred = km.predict(x)
+        self.assertIsInstance(y_pred, pd.DataFrame)
+        np.testing.assert_equal(y_pred.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_almost_equal(y_pred, y_true)
+
+        # Try getting standard errors from predict()
+        y_pred2, y_se = km.predict(x, return_se=True)
+        self.assertIsInstance(y_pred2, pd.DataFrame)
+        self.assertIsInstance(y_se, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred2)
+        np.testing.assert_equal(y_pred2.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred2.shape, y_se.shape)
+
+        # Try getting confidence intervals from predict()
+        y_pred3, y_lower, y_upper = km.predict(x, return_ci=True)
+        self.assertIsInstance(y_pred3, pd.DataFrame)
+        self.assertIsInstance(y_lower, pd.DataFrame)
+        self.assertIsInstance(y_upper, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred3)
+        np.testing.assert_equal(y_pred3.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred3.shape, y_lower.shape)
+        np.testing.assert_equal(y_pred3.shape, y_upper.shape)
+
+        # Try getting standard errors and confidence intervals from predict()
+        y_pred4, y_se, y_lower, y_upper = km.predict(x, return_se=True,
+                                                     return_ci=True)
+        self.assertIsInstance(y_pred4, pd.DataFrame)
+        self.assertIsInstance(y_se, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred4)
+        np.testing.assert_equal(y_pred4.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred4.shape, y_se.shape)
+        np.testing.assert_equal(y_pred4.shape, y_lower.shape)
+        np.testing.assert_equal(y_pred4.shape, y_upper.shape)
 
         # Check quantiles
-        prob = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
-        quantiles = [0., 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5., 5.]
-        np.testing.assert_almost_equal(km.quantile(prob), quantiles)
-
-        # Calling predict(), var(), se() with an array argument should return
-        # an array. Calling ci() should return a pair of arrays.
-        lower, upper = km.ci(data)
-        for val in (km.predict(data), km.var(data), km.se(data), lower, upper):
-            self.assertIsInstance(val, pd.Series)
-            self.assertEqual(val.shape, (len(data),))
-
-        # Calling predict(), var(), se() with a scalar argument should return
-        # a float. Calling ci() should return a pair of floats.
-        for t in data:
-            lower, upper = km.ci(t)
-            for val in (km.predict(t), km.var(t), km.se(t), lower, upper):
-                self.assertIsInstance(val, float)
+        p = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+        q_true = [0., 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, 5., 5.]
+        q_true = np.reshape(q_true, (-1, 1))
+        q_pred = km.quantile(p)
+        self.assertIsInstance(q_pred, pd.DataFrame)
+        np.testing.assert_almost_equal(q_pred, q_true)
 
     def test_censoring_one_group(self):
         """Simple example with one group and censoring.
@@ -94,29 +116,50 @@ class TestKaplanMeier(unittest.TestCase):
         self.assertEqual(km.data_.n_groups, 1)
 
         # Check estimated survival probabilities
-        data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
-        survival \
-            = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0.2, 0.2, 0.2]
-        np.testing.assert_almost_equal(km.predict(data), survival)
+        x = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
+        y_true = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0.2, 0.2, 0.2]
+        y_true = np.reshape(y_true, (-1, 1))
+        y_pred = km.predict(x)
+        self.assertIsInstance(y_pred, pd.DataFrame)
+        np.testing.assert_equal(y_pred.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_almost_equal(y_pred, y_true)
+
+        # Try getting standard errors from predict()
+        y_pred2, y_se = km.predict(x, return_se=True)
+        self.assertIsInstance(y_pred2, pd.DataFrame)
+        self.assertIsInstance(y_se, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred2)
+        np.testing.assert_equal(y_pred2.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred2.shape, y_se.shape)
+
+        # Try getting confidence intervals from predict()
+        y_pred3, y_lower, y_upper = km.predict(x, return_ci=True)
+        self.assertIsInstance(y_pred3, pd.DataFrame)
+        self.assertIsInstance(y_lower, pd.DataFrame)
+        self.assertIsInstance(y_upper, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred3)
+        np.testing.assert_equal(y_pred3.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred3.shape, y_lower.shape)
+        np.testing.assert_equal(y_pred3.shape, y_upper.shape)
+
+        # Try getting standard errors and confidence intervals from predict()
+        y_pred4, y_se, y_lower, y_upper = km.predict(x, return_se=True,
+                                                     return_ci=True)
+        self.assertIsInstance(y_pred4, pd.DataFrame)
+        self.assertIsInstance(y_se, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred4)
+        np.testing.assert_equal(y_pred4.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred4.shape, y_se.shape)
+        np.testing.assert_equal(y_pred4.shape, y_lower.shape)
+        np.testing.assert_equal(y_pred4.shape, y_upper.shape)
 
         # Check quantiles
-        prob = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
-        quantiles = [0., 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, np.nan, np.nan]
-        np.testing.assert_almost_equal(km.quantile(prob), quantiles)
-
-        # Calling predict(), var(), se() with an array argument should return
-        # an array. Calling ci() should return a pair of arrays.
-        lower, upper = km.ci(data)
-        for val in (km.predict(data), km.var(data), km.se(data), lower, upper):
-            self.assertIsInstance(val, pd.Series)
-            self.assertEqual(val.shape, (len(data),))
-
-        # Calling predict(), var(), se() with a scalar argument should return
-        # a float. Calling ci() should return a pair of floats.
-        for t in data:
-            lower, upper = km.ci(t)
-            for val in (km.predict(t), km.var(t), km.se(t), lower, upper):
-                self.assertIsInstance(val, float)
+        p = [0., 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+        q_true = [0., 1., 1.5, 2., 2.5, 3., 3.5, 4., 4.5, np.nan, np.nan]
+        q_true = np.reshape(q_true, (-1, 1))
+        q_pred = km.quantile(p)
+        self.assertIsInstance(q_pred, pd.DataFrame)
+        np.testing.assert_almost_equal(q_pred, q_true)
 
     def test_no_censoring_two_groups(self):
         """Simple example with two group and no censoring.
@@ -159,56 +202,50 @@ class TestKaplanMeier(unittest.TestCase):
         # There should be two groups
         self.assertEqual(km.data_.n_groups, 2)
 
-        # Check estimated survival probabilities for each group
-        data = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
-        survival0 = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0., 0.]
-        survival1 = [1., 1., 1, 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0.]
-        np.testing.assert_almost_equal(km.predict(data, "a"), survival0)
-        np.testing.assert_almost_equal(km.predict(data, "b"), survival1)
+        # Check estimated survival probabilities
+        x = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6]
+        y_a = [1., 1., 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0., 0.]
+        y_b = [1., 1., 1, 0.8, 0.8, 0.6, 0.6, 0.4, 0.4, 0.2, 0.2, 0., 0.]
+        y_true = np.column_stack((y_a, y_b))
+        y_pred = km.predict(x)
+        self.assertIsInstance(y_pred, pd.DataFrame)
+        np.testing.assert_equal(y_pred.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_almost_equal(y_pred, y_true)
 
-        # Check estimated survival probabilities for both groups at once
-        prob = km.predict(data)
-        self.assertIsInstance(prob, pd.DataFrame)
-        np.testing.assert_equal(prob.columns.values, ["a", "b"])
-        np.testing.assert_almost_equal(prob["a"], survival0)
-        np.testing.assert_almost_equal(prob["b"], survival1)
+        # Try getting standard errors from predict()
+        y_pred2, y_se = km.predict(x, return_se=True)
+        self.assertIsInstance(y_pred2, pd.DataFrame)
+        self.assertIsInstance(y_se, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred2)
+        np.testing.assert_equal(y_pred2.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred2.shape, y_se.shape)
 
-        # Calling predict(), var(), se() with an array argument should return
-        # a DataFrame. Calling ci() should return a pair of DataFrames.
-        lower, upper = km.ci(data)
-        for val in (km.predict(data), km.var(data), km.se(data), lower, upper):
-            self.assertIsInstance(val, pd.DataFrame)
-            np.testing.assert_equal(val.columns.values, ["a", "b"])
-            self.assertEqual(val.shape, (len(data), 2))
+        # Try getting confidence intervals from predict()
+        y_pred3, y_lower, y_upper = km.predict(x, return_ci=True)
+        self.assertIsInstance(y_pred3, pd.DataFrame)
+        self.assertIsInstance(y_lower, pd.DataFrame)
+        self.assertIsInstance(y_upper, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred3)
+        np.testing.assert_equal(y_pred3.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred3.shape, y_lower.shape)
+        np.testing.assert_equal(y_pred3.shape, y_upper.shape)
 
-        # Calling predict(), var(), se() with a scalar argument should return
-        # a DataFrame. Calling ci() should return a pair of DataFrames.
-        for t in data:
-            lower, upper = km.ci(t)
-            for val in (km.predict(t), km.var(t), km.se(t), lower, upper):
-                self.assertIsInstance(val, pd.DataFrame)
-                np.testing.assert_equal(val.columns.values, ["a", "b"])
-                self.assertEqual(val.shape, (1, 2))
+        # Try getting standard errors and confidence intervals from predict()
+        y_pred4, y_se, y_lower, y_upper = km.predict(x, return_se=True,
+                                                     return_ci=True)
+        self.assertIsInstance(y_pred4, pd.DataFrame)
+        self.assertIsInstance(y_se, pd.DataFrame)
+        pd.testing.assert_frame_equal(y_pred, y_pred4)
+        np.testing.assert_equal(y_pred4.shape, (len(x), km.data_.n_groups))
+        np.testing.assert_equal(y_pred4.shape, y_se.shape)
+        np.testing.assert_equal(y_pred4.shape, y_lower.shape)
+        np.testing.assert_equal(y_pred4.shape, y_upper.shape)
 
-        # Calling predict(), var(), se() with an array argument and specifying a
-        # group should return an array Calling ci() should return a pair of
-        # arrays.
-        for group in ("a", "b"):
-            lower, upper = km.ci(data, group=group)
-            for val in (km.predict(data, group=group),
-                        km.var(data, group=group), km.se(data, group=group),
-                        lower, upper):
-                self.assertIsInstance(val, pd.Series)
-                self.assertEqual(val.shape, (len(data),))
-
-        # Calling predict(), var(), se() with a scalar argument and a specified
-        # group should return a float. Calling ci() should return a pair of
-        # floats.
-        for group, t in itertools.product(("a", "b"), data):
-            lower, upper = km.ci(t, group=group)
-            for val in (km.predict(t, group=group), km.var(t, group=group),
-                        km.se(t, group=group), lower, upper):
-                self.assertIsInstance(val, float)
+        # Check quantiles
+        p = np.linspace(0., 1., num=11)
+        q_pred = km.quantile(p)
+        self.assertIsInstance(q_pred, pd.DataFrame)
+        np.testing.assert_equal(q_pred.shape, (len(p), km.data_.n_groups))
 
 
 if __name__ == "__main__":
