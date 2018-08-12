@@ -8,7 +8,7 @@ from ..survival_data import SurvivalData
 
 
 class NelsonAalen(NonparametricEstimator):
-    """Nelson-Aalen nonparametric cumulative hazard estimator.
+    r"""Nelson-Aalen nonparametric cumulative hazard estimator.
 
     This estimator was suggested by Nelson in [1]_ in the context of
     reliability, and it was rediscovered and generalized by Aalen in [2]_.
@@ -22,30 +22,113 @@ class NelsonAalen(NonparametricEstimator):
     conf_level : float
         Confidence level of the confidence intervals.
 
+    var_type : {'aalen', 'greenwood'}
+        Type of variance estimate to compute.
+
     tie_break : {'discrete', 'continuous'}
         Specify how to handle tied event times.
 
     Notes
     -----
-    The way that tie breaks are handled affects how the Nelson-Aalen estimator
-    and its variance estimates are computed.
+    Suppose we have observed right-censored and left-truncated event times. Let
+    :math:`T_1 < T_2 < \cdots` denote the ordered distinct event times. Let
+    :math:`N(t)` be the number of events observed up to time :math:`t`,
+    let :math:`Y(t)` denote the number of individuals at risk (under observation
+    but not yet censored or "dead") at time :math:`t`, and let
+
+    .. math::
+        J(t) = \begin{cases} 1 & \text{if $Y(t) > 0$,} \\
+        0 & \text{otherwise.} \end{cases}
+
+    The *Nelson-Aalen estimator* estimates the cumulative hazard function of the
+    time-to-event distribution by
+
+    .. math::
+        \widehat{A}(t) = \int_0^t \frac{J(s)}{Y(s)} \, dN(s).
+
+    This formula, proposed in [2]_, is computed as a sum in one of two ways
+    depending on how tied event times are handled (cf. Section 3.1.3 in [3]_).
+    This is governed by the `tie_break` parameter.
 
     * If `tie_break` is "discrete", then it is assumed that tied events are
-      possible, and we chose to implement formulas (3.13) and (3.16) in [3]_ for
-      the Nelson-Aalen estimator and its variance.
+      possible, and we compute the integral defining the Nelson-Aalen estimator
+      directly, leading to
+
+      .. math::
+
+        \widehat{A}(t) = \sum_{j : T_j \leq t} \frac{\Delta N(T_j)}{Y(T_j)}.
+
+      Here :math:`\Delta N(T_j)` is the number of events occurring at time
+      :math:`T_j`.
 
     * If `tie_break` is "continuous", then it is assumed that tied events only
       happen due to grouping or rounding, and the tied times are treated as if
       they happened in succession, each one immediately following the previous
-      one. We chose to implement formulas (3.12) and (3.15) in [3]_ in this
-      case.
+      one. This leads to the estimator
+
+      .. math::
+
+        \widehat{A}(t) = \sum_{j : T_j \leq t}
+        \sum_{k=0}^{\Delta N(T_j) - 1} \frac{1}{Y(T_j) - k}.
+
+    The variance of the Nelson-Aalen estimator is estimated by one of two
+    estimators suggested by [4]_. You can select the variance estimator by using
+    the `var_type` parameter.
+
+    * If `var_type` is "aalen", then the variance estimator derived in [2]_ is
+      used:
+
+      .. math::
+
+        \widehat{\mathrm{Var}}(\widehat{A}(t))
+        = \int_0^t \frac{J(s)}{Y(s)^2} \, dN(s).
+
+      This integral is computed in one of two ways depending on `tie_break`:
+
+      * If `tie_break` is "discrete", then the variance estimator is computed
+        as
+
+        .. math::
+
+          \widehat{\mathrm{Var}}(\widehat{A}(t))
+          = \sum_{j : T_j \leq t} \frac{\Delta N(T_j)}{Y(T_j)^2}.
+
+      * If `tie_break` is "continuous", then the variance estimator is computed
+        as
+
+        .. math::
+
+          \widehat{\mathrm{Var}}(\widehat{A}(t))
+          = \sum_{j : T_j \leq t} \sum_{k=0}^{\Delta N(T_j) - 1}
+          \frac{1}{\left(Y(T_j) - k\right)^2}.
+
+      This estimator of the variance was found to generally overestimate the
+      true variance of the Nelson-Aalen estimator [4]_.
+
+    * If `var_type` is "greenwood", then the Greenwood-type estimator derived in
+      [4]_ is used:
+
+      .. math::
+
+        \widehat{\mathrm{Var}}(\widehat{A}(t))
+        &= \int_0^t \frac{J(s) (Y(s) - \Delta N(s))}{Y(s)^3} \, dN(s) \\
+        &= \sum_{j : T_j \leq t}
+        \frac{(Y(T_j) - \Delta N(T_j)) \Delta N(T_j)}{Y(T_j)^3}.
+
+      This estimator tends to have a uniformly lower mean squared error than the
+      Aalen estimator, but it also tends to underestimate the true variance of
+      the Nelson-Aalen estimator [4]_.
+
+    The difference between these two variance estimators is only significant at
+    times when the risk set is small. Klein [4]_ recommends the Aalen estimator
+    over the Greenwood-type estimator.
 
     The two types of confidence intervals ("log" and "linear") provided here are
-    presented in [4]_. They are based on the asymptotic normality of the
+    presented in [5]_. They are based on the asymptotic normality of the
     Nelson-Aalen estimator and are derived from the delta method by suitable
     transformations of the estimator. The "log" intervals are more accurate for
     smaller sample sizes, but both methods are equivalent for large samples
-    [4]_.
+    [5]_.
 
     References
     ----------
@@ -59,7 +142,11 @@ class NelsonAalen(NonparametricEstimator):
         Event History Analysis. A Process Point of View. Springer-Verlag, New
         York (2008) pp. xviii+540.
         `DOI <https://doi.org/10.1007/978-0-387-68560-1>`__.
-    .. [4] Ole Bie, Ørnulf Borgan, and Knut Liestøl. "Confidence Intervals and
+    .. [4] John P. Klein. "Small sample moments of some estimators of the
+        variance of the Kaplan-Meier and Nelson-Aalen estimators." Scandinavian
+        Journal of Statistics. Volume 18, Number 4 (1991), pp. 333--40.
+        `JSTOR <http://www.jstor.org/stable/4616215>`__.
+    .. [5] Ole Bie, Ørnulf Borgan, and Knut Liestøl. "Confidence Intervals and
         Confidence Bands for the Cumulative Hazard Rate Function and Their Small
         Sample Properties." Scandinavian Journal of Statistics, Volume 14,
         Number 3 (1987), pp. 221--33.
@@ -70,28 +157,14 @@ class NelsonAalen(NonparametricEstimator):
     _estimate0 = 0.
 
     _conf_types = ("linear", "log")
-
-    # How to handle tied event times for the Aalen-Johansen variance estimator
+    _var_types = ("aalen", "greenwood")
     _tie_breaks = ("continuous", "discrete")
-    _tie_break: str
-
-    @property
-    def tie_break(self):
-        """How to handle tied event times."""
-        return self._tie_break
-
-    @tie_break.setter
-    def tie_break(self, tie_break):
-        """Set the tie-breaking scheme."""
-        if tie_break in self._tie_breaks:
-            self._tie_break = tie_break
-        else:
-            raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
 
     def __init__(self, *, conf_type="log", conf_level=0.95,
-                 tie_break="discrete"):
+                 var_type="aalen", tie_break="discrete"):
         self.conf_type = conf_type
         self.conf_level = conf_level
+        self.var_type = var_type
         self.tie_break = tie_break
 
     def fit(self, time, **kwargs):
@@ -137,23 +210,40 @@ class NelsonAalen(NonparametricEstimator):
             d = self._data.events[group].n_events
             y = self._data.events[group].n_at_risk
 
-            # Compute the cumulative hazard and variance estimates
+            # Compute the Nelson-Aalen estimator increments
             if self._tie_break == "discrete":
-                self.estimate_.append(np.cumsum(d / y))
-                self.estimate_var_.append(np.cumsum((y - d) * d / (y ** 3)))
+                na_inc = d / y
             elif self._tie_break == "continuous":
-                na_increments = np.empty(len(d), dtype=np.float_)
-                var_increments = np.empty(len(d), dtype=np.float_)
+                na_inc = np.empty(len(d), dtype=np.float_)
                 for j in range(len(d)):
-                    temp = y[j] - np.arange(d[j])
-                    na_increments[j] = np.sum(1 / temp)
-                    var_increments[j] = np.sum(1 / temp ** 2)
-                self.estimate_.append(np.cumsum(na_increments))
-                self.estimate_var_.append(np.cumsum(var_increments))
+                    na_inc[j] = np.sum(1 / (y[j] - np.arange(d[j])))
             else:
                 # This should not be reachable
                 raise RuntimeError(
                     f"Invalid tie-breaking scheme: {self._tie_break}.")
+
+            # Compute the variance estimate increments
+            if self._var_type == "greenwood":
+                var_inc = (y - d) * d / (y ** 3)
+            elif self.var_type == "aalen":
+                if self._tie_break == "discrete":
+                    var_inc = d / (y ** 2)
+                elif self._tie_break == "continuous":
+                    var_inc = np.empty(len(d), dtype=np.float_)
+                    for j in range(len(d)):
+                        var_inc[j] = np.sum(1 / (y[j] - np.arange(d[j])) ** 2)
+                else:
+                    # This should not be reachable
+                    raise RuntimeError(
+                        f"Invalid tie-breaking scheme: {self._tie_break}.")
+            else:
+                # This should not be reachable
+                raise RuntimeError(
+                    f"Invalid variance type: {self._var_type}.")
+
+            # Compute Nelson-Aalen estimate and variance estimates
+            self.estimate_.append(np.cumsum(na_inc))
+            self.estimate_var_.append(np.cumsum(var_inc))
 
             # Standard normal quantile for confidence intervals
             z = st.norm.ppf((1 - self.conf_level) / 2)

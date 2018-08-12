@@ -5,8 +5,8 @@ import abc
 import numpy as np
 import pandas as pd
 
-from ..survival_data import SurvivalData
 from ..base import Model, Fittable, Predictor, Summary
+from ..survival_data import SurvivalData
 from ..utils.validation import (check_bool, check_colors, check_data_1d,
                                 check_float)
 
@@ -21,12 +21,20 @@ class NonparametricEstimator(Model, Fittable, Predictor):
     # Types of confidence intervals available
     _conf_types: tuple
 
+    # Types of variance estimates available
+    _var_types: tuple
+
+    # How to handle tied event times
+    _tie_breaks = ("continuous", "discrete")
+
     # Internal storage of the survival data
     _data: SurvivalData
 
     # Internal versions of __init__() parameters
     _conf_type: str
     _conf_level: float
+    _var_type: str
+    _tie_break: str
 
     # Estimate at each distinct event time for each group
     estimate_: list
@@ -71,6 +79,34 @@ class NonparametricEstimator(Model, Fittable, Predictor):
     def conf_level(self, conf_level):
         """Set the confidence level."""
         self._conf_level = check_float(conf_level, minimum=0., maximum=1.)
+
+    @property
+    def var_type(self):
+        """Type of variance estimate for the survival function to compute."""
+        return self._var_type
+
+    @var_type.setter
+    def var_type(self, var_type):
+        """Set the type of variance estimate."""
+        if var_type in self._var_types:
+            self._var_type = var_type
+        else:
+            raise ValueError(f"Invalid value for 'var_type': {var_type}.")
+
+    @property
+    def tie_break(self):
+        """How to handle tied event times for the Aalen-Johansen variance
+        estimator.
+        """
+        return self._tie_break
+
+    @tie_break.setter
+    def tie_break(self, tie_break):
+        """Set the tie-breaking scheme."""
+        if tie_break in self._tie_breaks:
+            self._tie_break = tie_break
+        else:
+            raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
 
     @property
     def data_(self) -> SurvivalData:

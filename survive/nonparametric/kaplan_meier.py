@@ -216,45 +216,12 @@ class KaplanMeier(NonparametricSurvival):
     model_type = "Kaplan-Meier estimator"
 
     _conf_types = ("arcsin", "linear", "log", "log-log", "logit")
-
-    # Types of variance estimators
     _var_types = ("aalen-johansen", "bootstrap", "greenwood")
-    _var_type: str
-
-    # How to handle tied event times for the Aalen-Johansen variance estimator
     _tie_breaks = ("continuous", "discrete")
-    _tie_break: str
 
     # Number of bootstrap samples to draw
     _n_boot: int
 
-    @property
-    def var_type(self):
-        """Type of variance estimate for the survival function to compute."""
-        return self._var_type
-
-    @var_type.setter
-    def var_type(self, var_type):
-        """Set the type of variance estimate."""
-        if var_type in self._var_types:
-            self._var_type = var_type
-        else:
-            raise ValueError(f"Invalid value for 'var_type': {var_type}.")
-
-    @property
-    def tie_break(self):
-        """How to handle tied event times for the Aalen-Johansen variance
-        estimator.
-        """
-        return self._tie_break
-
-    @tie_break.setter
-    def tie_break(self, tie_break):
-        """Set the tie-breaking scheme."""
-        if tie_break in self._tie_breaks:
-            self._tie_break = tie_break
-        else:
-            raise ValueError(f"Invalid value for 'tie_break': {tie_break}.")
 
     @property
     def n_boot(self):
