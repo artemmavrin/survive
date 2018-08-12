@@ -21,5 +21,6 @@ setup(
     packages=sorted(find_packages(exclude=("*.test",))),
     include_package_data=True,
     install_requires=["numpy", "scipy", "pandas", "matplotlib"],
-    extras_require={"seaborn": ["seaborn"]}
+    extras_require={"seaborn": ["seaborn"]},
+    license="MIT"
 )
