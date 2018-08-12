@@ -449,7 +449,7 @@ class NonparametricEstimatorSummary(Summary):
                 Lower confidence interval bound for the estimate at each event
                 time. The actual name of this column will contain the confidence
                 level.
-                
+
             c.i. upper
                 Upper confidence interval bound for the estimate at each event
                 time. The actual name of this column will contain the confidence
