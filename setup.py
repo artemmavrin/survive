@@ -4,17 +4,19 @@ from setuptools import setup, find_packages
 
 import survive
 
-# Load long description from README.md
-here = path.abspath(path.dirname(__file__))
-with open(path.join(here, "README.md"), "r") as f:
-    long_description = f.read()
+
+def load_file(filename):
+    filename = path.join(path.abspath(path.dirname(__file__)), filename)
+    with open(filename, "r") as file:
+        return file.read()
+
 
 setup(
     name="survive",
     version=survive.__version__,
     description="Survival analysis in Python",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description=load_file("README.rst"),
+    long_description_content_type="text/x-rst",
     url="https://github.com/artemmavrin/survive",
     author="Artem Mavrin",
     author_email="amavrin@ucsd.edu",
