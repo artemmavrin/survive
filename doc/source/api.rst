@@ -20,6 +20,7 @@ Classes
     :toctree: generated/
     :template: class.rst
 
+    Breslow
     KaplanMeier
     NelsonAalen
     SurvivalData
