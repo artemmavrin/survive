@@ -4,7 +4,7 @@
 
 - [X] Bootstrap for Kaplan-Meier (Efron (1981))
 - [X] Nonparametric model quantiles
-- [ ] Nonparametric model quantile confidence intervals
+- [X] Nonparametric model quantile confidence intervals
 - [ ] Nonparametric model restricted mean
 - [ ] Parametric models (exponential, Weibull, etc.)
 - [X] Nelson-Aalen estimator

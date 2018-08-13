@@ -378,9 +378,37 @@ class NonparametricSurvival(NonparametricEstimator):
     def fit(self, *args, **kwargs):
         pass
 
-    def quantile(self, prob):
+    def quantile(self, prob, *, return_ci=False):
         """Empirical quantile estimates for the time-to-event distribution.
 
+        Parameters
+        ----------
+        prob : array-like
+            One-dimensional array of values between 0 and 1 representing the
+            probability levels of the desired quantiles.
+
+        return_ci : bool, optional
+            Specify whether to return confidence intervals for the quantile
+            estimates.
+
+        Returns
+        -------
+        quantiles : pandas.DataFrame
+            The quantile estimates. Rows are indexed by the entries of `time`
+            and columns are indexed by the model's group labels. Entries for
+            probability levels for which the quantile estimate is not defined
+            are nan (not a number).
+
+        lower : pandas.DataFrame, optional
+            Lower confidence interval bounds for the quantile estimates.
+            Returned only if `return_ci` is True. Same shape as `quantiles`.
+
+        upper : pandas.DataFrame, optional
+            Upper confidence interval bounds for the quantile estimates.
+            Returned only if `return_ci` is True. Same shape as `quantiles`.
+
+        Notes
+        -----
         For a probability level :math:`p` between 0 and 1, the empirical
         :math:`p`-quantile of the time-to-event distribution with estimated
         survival function :math:`\widehat{S}(t)` is defined to be the time at
@@ -390,59 +418,113 @@ class NonparametricSurvival(NonparametricEstimator):
         and coincides with the horizontal line at height :math:`1-p`. In this
         case the midpoint of this interval is taken to be the empirical
         :math:`p`-quantile estimate (this is just one of many possible
-        conventions, and the one used by the R package ``survival``). If the
-        survival function estimate never gets as low as :math:`1-p`, then the
-        :math:`p`-quantile cannot be estimated.
+        conventions, and the one used by the R package ``survival`` [1]_). If
+        the survival function estimate never gets as low as :math:`1-p`, then
+        the :math:`p`-quantile cannot be estimated.
 
-        Parameters
+        The confidence intervals computed here are based on finding the time at
+        which the horizontal line at height :math:`1-p` intersects the upper
+        and lower confidence interval for :math:`\widehat{S}(t)`. This mimics
+        the implementation in the R package ``survival`` [1]_, which is based on
+        the confidence interval construction in [2]_.
+
+        References
         ----------
-        prob : array-like
-            One-dimensional array of values between 0 and 1 representing the
-            probability levels of the desired quantiles.
-
-        Returns
-        -------
-        quantiles : pandas.DataFrame
-            The quantile estimates. Rows are indexed by the entries of `time`
-            and columns are indexed by the model's group labels. Entries for
-            probability levels for which the quantile estimate is not defined
-            are nan (not a number).
+        .. [1] Terry M. Therneau. A Package for Survival Analysis in S. version
+            2.38 (2015). `CRAN <https://CRAN.R-project.org/package=survival>`__.
+        .. [2] Ron Brookmeyer and John Crowley. "A Confidence Interval for the
+            Median Survival Time." Biometrics, Volume 38, Number 1 (1982),
+            pp. 29--41. `DOI <https://doi.org/10.2307/2530286>`__.
         """
         self.check_fitted()
-        prob = check_data_1d(prob)
+        return_ci = check_bool(return_ci)
+        prob = check_data_1d(prob, keep_pandas=False)
         if not np.all((prob >= 0) * (prob <= 1)):
             raise ValueError("Probability levels must be between zero and one.")
 
+        # Initialize all arrays
         quantiles = np.empty((prob.shape[0], self._data.n_groups),
                              dtype=np.float_)
+        lower = np.empty(quantiles.shape, dtype=np.float_)
+        upper = np.empty(quantiles.shape, dtype=np.float_)
 
+        # Compute quantile estimates and confidence intervals if necessary
         for j, g in enumerate(self._data.group_labels):
-            # Find intersection of horizontal line at height 1-p with the
-            # estimated survival curve
-            cdf = np.concatenate(([0.], 1 - self.estimate_[j]))
-            ind1 = np.searchsorted(cdf - self._quantile_tol, prob)
-            ind2 = np.searchsorted(cdf + self._quantile_tol, prob)
+            mask = (self._data.group == g)
+            quantiles[:, j] = \
+                _find_intersection(p=prob, y=self.estimate_[j],
+                                   tol=self._quantile_tol,
+                                   c_times=self._data.censor[g].time,
+                                   e_times=self._data.events[g].time,
+                                   entry=self._data.entry[mask])
 
-            # Find out whether the last time for this group was censored
-            censor_times = self._data.censor[g].time
-            event_times = self._data.events[g].time
-            if (len(censor_times) > 0
-                    and censor_times.iloc[-1] > event_times.iloc[-1]):
-                last = censor_times.iloc[-1]
-            else:
-                last = event_times.iloc[-1]
-
-            qs = np.concatenate(([0.], event_times, [last]))
-            quantiles[:, j] = 0.5 * (qs[ind1] + qs[ind2])
-
-            # Special cases
-            quantiles[prob < self._quantile_tol, j] = \
-                np.min(self._data.entry[self._data.group == g])
-            quantiles[prob > cdf[-1] + self._quantile_tol, j] = np.nan
+            if return_ci:
+                lower[:, j] = \
+                    _find_intersection(p=prob, y=self.estimate_ci_lower_[j],
+                                       tol=self._quantile_tol,
+                                       c_times=self._data.censor[g].time,
+                                       e_times=self._data.events[g].time,
+                                       entry=self._data.entry[mask])
+                upper[:, j] = \
+                    _find_intersection(p=prob, y=self.estimate_ci_upper_[j],
+                                       tol=self._quantile_tol,
+                                       c_times=self._data.censor[g].time,
+                                       e_times=self._data.events[g].time,
+                                       entry=self._data.entry[mask])
 
         columns = pd.Index(self._data.group_labels, name="group")
         index = pd.Index(prob, name="prob")
-        return pd.DataFrame(quantiles, columns=columns, index=index)
+        quantiles = pd.DataFrame(quantiles, columns=columns, index=index)
+
+        if not return_ci:
+            return quantiles
+        else:
+            lower = pd.DataFrame(lower, columns=columns, index=index)
+            upper = pd.DataFrame(upper, columns=columns, index=index)
+            return quantiles, lower, upper
+
+
+def _find_intersection(p, y, tol, c_times, e_times, entry):
+    """Find points of intersection of estimated curve `y` with probability level
+    1-`p`.
+
+    Used for quantile estimation.
+
+    Parameters
+    ----------
+    p : numpy.ndarray
+        Probability levels.
+    y : numpy.ndarray
+        Numbers between 0 and 1 defined at each event time.
+    tol : float
+        Tolerance for exact equality between `p` and `y`.
+    c_times : pandas.Series
+        Ordered distinct censored times.
+    e_times : pandas.Series
+        Ordered distinct event times.
+    entry : numpy.ndarray
+        List of entry times.
+    """
+    # Find intersection of horizontal line at height 1-p with y curve
+    y = np.concatenate(([0.], 1 - y))
+    ind1 = np.searchsorted(y - tol, p)
+    ind2 = np.searchsorted(y + tol, p)
+
+    # Find out whether the last time was censored or not
+    if len(c_times) > 0 and c_times.iloc[-1] > e_times.iloc[-1]:
+        last = c_times.iloc[-1]
+    else:
+        last = e_times.iloc[-1]
+
+    x = np.concatenate(([0.], e_times, [last]))
+    x = 0.5 * (x[ind1] + x[ind2])
+
+    # Special cases
+    with np.errstate(invalid="ignore"):
+        x[p < tol] = np.min(entry)
+        x[p > np.nanmax(y) + tol] = np.nan
+
+    return x
 
 
 class NonparametricEstimatorSummary(Summary):
