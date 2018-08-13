@@ -1,13 +1,13 @@
 PYTHON := python3
 
-.PHONY: all install html test clean ipynb2rst
+.PHONY: all install html test clean
 
 all: install html
 
 install: clean
 	${PYTHON} setup.py install
 
-html: clean ipynb2rst
+html: clean
 	make -C doc html
 
 test:
