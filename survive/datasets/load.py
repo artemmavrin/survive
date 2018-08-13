@@ -33,12 +33,15 @@ def leukemia():
     -------
     pandas.DataFrame
         The leukemia data. Column descriptions:
-            * time
-                The observed leukemia remission times.
-            * status
-                Right-censoring indicators (0=censored, 1=event).
-            * group
-                Group labels (control or treatment).
+
+        time
+            The observed leukemia remission times.
+
+        status
+            Right-censoring indicators (0=censored, 1=event).
+
+        group
+            Group labels (control or treatment).
 
     References
     ----------
@@ -75,21 +78,26 @@ def channing():
     -------
     pandas.DataFrame
         The Channing House data. Column descriptions:
-            * sex
-                Sex of each resident (male or female).
-            * entry
-                The resident's age (in months) on entry to the centre.
-            * exit
-                The age (in months) of the resident on death, leaving the centre
-                or July 1, 1975 whichever event occurred first.
-            * time
-                The length of time (in months) that the resident spent at
-                Channing House (`time=exit-event`).
-            * status
-                Right-censoring indicator. 1 indicates that the resident died at
-                Channing House, 0 indicates that they left the house prior to
-                July 1, 1975 or that they were still alive and living in the
-                centre at that date.
+
+        sex
+            Sex of each resident (male or female).
+
+        entry
+            The resident's age (in months) on entry to the centre.
+
+        exit
+            The age (in months) of the resident on death, leaving the centre or
+            July 1, 1975 whichever event occurred first.
+
+        time
+            The length of time (in months) that the resident spent at Channing
+            House (`time` = `exit` - `event`).
+
+        status
+            Right-censoring indicator. 1 indicates that the resident died at
+            Channing House, 0 indicates that they left the house prior to
+            July 1, 1975 or that they were still alive and living in the centre
+            at that date.
 
     References
     ----------
