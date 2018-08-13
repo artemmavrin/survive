@@ -7,7 +7,7 @@
 - [ ] Nonparametric model quantile confidence intervals
 - [ ] Nonparametric model restricted mean
 - [ ] Parametric models (exponential, Weibull, etc.)
-- [ ] Nelson-Aalen(-Fleming-Harrington?) estimator
+- [X] Nelson-Aalen estimator
 - [ ] Actuarial estimator
 - [ ] Draw a risk table under the survival curve plot
 
