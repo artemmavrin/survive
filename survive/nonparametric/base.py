@@ -82,7 +82,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
     @property
     def var_type(self):
-        """Type of variance estimate for the survival function to compute."""
+        """Type of variance estimate to compute."""
         return self._var_type
 
     @var_type.setter
@@ -95,8 +95,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
     @property
     def tie_break(self):
-        """How to handle tied event times for the Aalen-Johansen variance
-        estimator.
+        """How to handle tied event times.
         """
         return self._tie_break
 
@@ -128,7 +127,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         pass
 
     def predict(self, time, *, return_se=False, return_ci=False):
-        """Return estimates of at the given times.
+        """Compute estimates.
 
         Parameters
         ----------
@@ -228,7 +227,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
     def plot(self, *groups, ci=True, ci_kwargs=None, mark_censor=True,
              mark_censor_kwargs=None, legend=True, legend_kwargs=None,
              colors=None, palette=None, ax=None, **kwargs):
-        """Plot the nonparametric estimates.
+        """Plot the estimates.
 
         Parameters
         ----------
