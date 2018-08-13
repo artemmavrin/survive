@@ -270,12 +270,5 @@ class NelsonAalen(NonparametricEstimator):
                 self.estimate_ci_lower_.append(np.maximum(lower, 0.))
                 self.estimate_ci_upper_.append(upper)
 
-            # Make sure that variance estimates and confidence intervals are NaN
-            # when the estimated survival probability is zero
-            ind_zero = (self.estimate_[i] == 0.)
-            self.estimate_var_[i][ind_zero] = np.nan
-            self.estimate_ci_lower_[i][ind_zero] = np.nan
-            self.estimate_ci_upper_[i][ind_zero] = np.nan
-
         self.fitted = True
         return self
