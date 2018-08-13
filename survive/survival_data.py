@@ -452,7 +452,7 @@ class SurvivalData(object):
             Indicates whether to display a legend for the plot.
 
         legend_kwargs : dict, optional
-            Keyword parameters to pass to :func:`matplotlib.axes.Axes.legend`.
+            Keyword parameters to pass to :meth:`matplotlib.axes.Axes.legend`.
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
@@ -470,7 +470,7 @@ class SurvivalData(object):
 
         **kwargs : keyword arguments
             Additional keyword arguments to pass to
-            :func:`matplotlib.axes.Axes.plot` when plotting the lifetimes.
+            :meth:`matplotlib.axes.Axes.plot` when plotting the lifetimes.
 
         Returns
         -------
@@ -544,7 +544,7 @@ class SurvivalData(object):
             Indicates whether to display a legend for the plot.
 
         legend_kwargs : dict, optional
-            Keyword parameters to pass to :func:`matplotlib.axes.Axes.legend`.
+            Keyword parameters to pass to :meth:`matplotlib.axes.Axes.legend`.
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
@@ -562,7 +562,7 @@ class SurvivalData(object):
 
         **kwargs : keyword arguments
             Additional keyword arguments to pass to
-            :func:`matplotlib.axes.Axes.step` when plotting the at-risk process.
+            :meth:`matplotlib.axes.Axes.step` when plotting the at-risk process.
 
         Returns
         -------

@@ -240,7 +240,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
         ci_kwargs : dict, optional
             Additional keyword parameters to pass to
-            :func:`matplotlib.axes.Axes.fill_between` when plotting the
+            :meth:`matplotlib.axes.Axes.fill_between` when plotting the
             confidence band.
 
         mark_censor : bool, optional
@@ -248,13 +248,13 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
         mark_censor_kwargs : dict, optional
             Additional keyword parameters to pass to
-            :func:`matplotlib.axes.Axes.scatter` when marking censored times.
+            :meth:`matplotlib.axes.Axes.scatter` when marking censored times.
 
         legend : bool, optional
             Indicates whether to display a legend for the plot.
 
         legend_kwargs : dict, optional
-            Keyword parameters to pass to :func:`matplotlib.axes.Axes.legend`.
+            Keyword parameters to pass to :meth:`matplotlib.axes.Axes.legend`.
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
@@ -272,7 +272,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
         **kwargs : keyword arguments
             Additional keyword arguments to pass to
-            :func:`matplotlib.axes.Axes.step` when plotting the estimates.
+            :meth:`matplotlib.axes.Axes.step` when plotting the estimates.
 
         Returns
         -------
