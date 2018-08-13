@@ -15,9 +15,16 @@
 import os
 import sys
 
+# If extensions (or modules to document with autodoc) are in another
+# directory, add these directories to sys.path here. If the directory
+# is relative to the documentation root, use os.path.abspath to make it
+# absolute, like shown here.
 sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath('sphinxext'))
 
 import survive
+from github_link import make_linkcode_resolve
+
 
 # -- Project information -----------------------------------------------------
 
@@ -47,10 +54,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.githubpages',
-    'numpydoc',
     'sphinx.ext.intersphinx',
+    'numpydoc',
     'nbsphinx'
 ]
 
@@ -184,3 +189,9 @@ autosummary_generate = True
 # https://github.com/numpy/numpydoc/issues/69
 numpydoc_show_class_members = True
 numpydoc_class_members_toctree = False
+
+# Used by sphinx.ext.linkcode to provide links to github
+extensions.append("sphinx.ext.linkcode")
+url_fmt = "https://github.com/artemmavrin/survive/blob/" \
+          "{revision}/{package}/{path}#L{lineno}"
+linkcode_resolve = make_linkcode_resolve("survive", url_fmt)
