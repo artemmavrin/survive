@@ -8,8 +8,10 @@
 - [ ] Nonparametric model restricted mean
 - [ ] Parametric models (exponential, Weibull, etc.)
 - [X] Nelson-Aalen estimator
+- [ ] Fleming-Harrington estimator
 - [ ] Actuarial estimator
 - [ ] Draw a risk table under the survival curve plot
+- [ ] Confidence bands (EP, Hall-Wellner)
 
 ## Hypothesis Testing
 
