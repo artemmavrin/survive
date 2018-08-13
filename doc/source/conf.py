@@ -179,4 +179,8 @@ texinfo_documents = [
 todo_include_todos = True
 
 autosummary_generate = True
-numpydoc_show_class_members = False
+
+# Needed to fix numpydoc issue
+# https://github.com/numpy/numpydoc/issues/69
+numpydoc_show_class_members = True
+numpydoc_class_members_toctree = False
