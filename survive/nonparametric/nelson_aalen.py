@@ -134,10 +134,10 @@ class NelsonAalen(NonparametricEstimator):
     ----------
     .. [1] Wayne Nelson. "Theory and Applications of Hazard Plotting for
         Censored Failure Data". Technometrics, Volume 14, Number 4 (1972),
-        pp. 945--966. `JSTOR <www.jstor.org/stable/1267144>`__.
+        pp. 945--966. `JSTOR <http://www.jstor.org/stable/1267144>`__.
     .. [2] Odd Aalen. "Nonparametric Inference for a Family of Counting
         Processes". The Annals of Statistics, Volume 6, Number 4 (1978),
-        pp. 701--726. `JSTOR <www.jstor.org/stable/2958850>`__.
+        pp. 701--726. `JSTOR <http://www.jstor.org/stable/2958850>`__.
     .. [3] Odd O. Aalen, Ørnulf Borgan, and Håkon K. Gjessing. Survival and
         Event History Analysis. A Process Point of View. Springer-Verlag, New
         York (2008) pp. xviii+540.
