@@ -15,8 +15,10 @@ def _check_type(obj, base, allow_none):
     ----------
     obj : object
         The object to be validated.
+
     base : type
         The base type that `obj` should be an instance of.
+
     allow_none : bool
         Indicates whether the value None should be allowed to pass through.
 
@@ -47,7 +49,8 @@ def check_bool(tf, *, allow_none=False):
     ----------
     tf : object
         The object to be validated.
-    allow_none : bool, optional (default: False)
+
+    allow_none : bool, optional
         Indicates whether the value None should be allowed.
 
     Returns
@@ -70,11 +73,14 @@ def check_int(num, *, minimum=None, maximum=None, allow_none=False):
     ----------
     num : object
         The object to be validated.
-    minimum : int, optional (default: None)
+
+    minimum : int, optional
         The minimum value that `num` can take (inclusive).
-    maximum : int, optional (default: None)
+
+    maximum : int, optional
         The maximum value that `num` can take (inclusive).
-    allow_none : bool, optional (default: False)
+
+    allow_none : bool, optional
         Indicates whether the value None should be allowed.
 
     Returns
@@ -86,6 +92,7 @@ def check_int(num, *, minimum=None, maximum=None, allow_none=False):
     ------
     TypeError
         If `num` is not an integer.
+
     ValueError
         If any of the optional minimum and maximum value constraints are
         violated.
@@ -116,13 +123,17 @@ def check_float(num, *, positive=False, minimum=None, maximum=None,
     ----------
     num : object
         The object to be validated.
-    positive : bool (default: False)
+
+    positive : bool, optional
         If True, `num` must be positive. If False, `num` can be any float.
-    minimum : float, optional (default: None)
+
+    minimum : float, optional
         The minimum value that `num` can take (inclusive).
-    maximum : float, optional (default: None)
+
+    maximum : float, optional
         The maximum value that `num` can take (inclusive).
-    allow_none : bool, optional (default: False)
+
+    allow_none : bool, optional
         Indicates whether the value None should be allowed.
 
     Returns
@@ -134,6 +145,7 @@ def check_float(num, *, positive=False, minimum=None, maximum=None,
     ------
     TypeError
         If `num` is not a float.
+
     ValueError
         If any of the optional positivity or minimum and maximum value
         constraints are violated.
@@ -169,24 +181,31 @@ def check_data_1d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
     data : array-like
         The data array. If `data` is a scalar, it is interpreted as an array of
         shape (1,).
-    numeric : bool, optional (default: True)
-        If True, ensure that the entries in the array are of a numeric type.
-    n_exact : int, optional (default: None)
+    numeric : bool, optional
+        If True, ensure that the entries in `data` are of a numeric type.
+
+    n_exact : int, optional
         Exact number of entries expected.
-    n_min : int, optional (default: None)
+
+    n_min : int, optional
         Minimum number of entries expected.
-    n_max : int, optional (default: None)
+
+    n_max : int, optional
         Maximum number of entries expected.
-    keep_pandas : bool, optional (default: True)
-        If True, keep pandas.Series objects as pandas.Series instead of
-        converting them to NumPy arrays.
-    copy : bool, optional (default: False)
+
+    keep_pandas : bool, optional
+        If True, keep a :class:`pandas.Series` as a Series instead of converting
+        it to a :class:`numpy.ndarray`.
+
+    copy : bool, optional
         If True, the array will be copied. If False, the array might be copied
-        depending on the behavior of numpy.array().
+        depending on the behavior of :func:`numpy.array`.
+
     dtype : str or type, optional (default: None)
-        The desired data type for the feature matrix.
+        The desired data type of the validated array.
+
     order : str, optional (default: None)
-        The desired memory layout of the array. See the numpy.array()
+        The desired memory layout of the array. See the :func:`numpy.array`
         documentation for details.
 
     Returns
@@ -257,37 +276,45 @@ def check_data_2d(data, *, numeric=True, n_exact=None, n_min=None, n_max=None,
     (n, 1). This means that if you want one observation of p features, then you
     must pass in a two-dimensional array of shape (1, p).
 
-    If `data` is a pandas.DataFrame, the returned value will also be a
-    pandas.DataFrame. Otherwise, the returned value is a numpy.ndarray.
-
     Parameters
     ----------
     data : array-like
         Matrix of shape (n, p) (n=number of observations, p=number of features).
-    numeric : bool, optional (default: True)
+
+    numeric : bool, optional
         If True, ensure that the entries in the array are of a numeric type.
-    n_exact : int, optional (default: None)
+
+    n_exact : int, optional
         Exact number of observations (rows) expected.
-    n_min : int, optional (default: None)
+
+    n_min : int, optional
         Minimum number of observations (rows) expected.
-    n_max : int, optional (default: None)
+
+    n_max : int, optional
         Maximum number of observations (rows) expected.
-    p_exact : int, optional (default: None)
+
+    p_exact : int, optional
         Exact number of features (columns) expected.
-    p_min : int, optional (default: None)
+
+    p_min : int, optional
         Minimum number of features (columns) expected.
-    p_max : int, optional (default: None)
+
+    p_max : int, optional
         Maximum number of features (columns) expected.
-    keep_pandas : bool, optional (default: True)
-        If True, keep pandas.DataFrame objects as pandas.DataFrame instead of
-        converting them to NumPy arrays.
-    copy : bool, optional (default: False)
+
+    keep_pandas : bool, optional
+        If True, keep a :class:`pandas.DataFrame` as a DataFrame instead of
+        converting it to a :class:`numpy.ndarray`.
+
+    copy : bool, optional
         If True, the array will be copied. If False, the array might be copied
-        depending on the behavior of numpy.array().
+        depending on the behavior of :func:`numpy.array`.
+
     dtype : str or type, optional (default: None)
-        The desired data type for the feature matrix.
+        The desired data type of the validated array.
+
     order : str, optional (default: None)
-        The desired memory layout of the array. See the numpy.array()
+        The desired memory layout of the array. See the :func:`numpy.array`
         documentation for details.
 
     Returns
@@ -363,8 +390,8 @@ def check_random_state(random_state):
     Parameters
     ----------
     random_state : numpy.random.RandomState, int, array-like, or None
-        Either a numpy.random.RandomState instance or a valid seed for a
-        numpy.random.RandomState object.
+        Either a :class:`numpy.random.RandomState` instance or a valid seed for
+        a :class:`numpy.random.RandomState` object.
 
     Returns
     -------
@@ -382,24 +409,30 @@ def check_colors(colors, *, n_colors=None, keys=None, palette=None):
 
     Parameters
     ----------
-    colors : list or tuple or dict or str, optional (default: None)
-        Colors for each group. This is ignored if ``palette`` is provided.
+    colors : list or tuple or dict or str
+        Colors for each key. This is ignored if `palette` is provided.
         Possible types:
-            * list or tuple
-                Sequence of valid matplotlib colors to cycle through.
-            * dict
-                If parameter ``keys`` is not None, this should be a mapping from
-                the keys in ``keys`` to valid matplotlib colors.
-            * str
-                Name of a matplotlib colormap. The parameter ``n_colors`` must
-                be provided in this case to specify how many colors to generate.
-    n_colors : int, optional (default: None)
+
+        list or tuple
+            Sequence of valid Matplotlib colors to cycle through.
+
+        dict
+            If parameter `keys` is not None, this should be a mapping from
+            the keys in `keys` to valid Matplotlib colors.
+
+        str
+            Name of a Matplotlib colormap. The parameter `n_colors` must
+            be provided in this case to specify how many colors to generate.
+
+    n_colors : int, optional
         Specify the number of colors to generate.
+
     keys : sequence, optional
-        List of all keys that must be present in ``colors`` if it is a dict.
-    palette : str, optional (default: None)
+        List of all keys that must be present in `colors` if it is a dict.
+
+    palette : str, optional
         Name of a seaborn color palette. Requires seaborn to be installed.
-        Setting a color palette overrides the ``colors`` parameter.
+        Setting a color palette overrides the `colors` parameter.
 
     Returns
     -------

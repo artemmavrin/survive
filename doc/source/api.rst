@@ -75,7 +75,7 @@ Functions
     :no-inherited-members:
 
 Classes
------------------
+-------
 
 .. currentmodule:: survive
 
@@ -86,3 +86,28 @@ Classes
     nonparametric.NonparametricEstimator
     nonparametric.NonparametricSurvival
     nonparametric.NonparametricEstimatorSummary
+
+
+:mod:`survive.utils`: Utility Functions
+=======================================
+
+.. automodule:: survive.utils
+    :no-members:
+    :no-inherited-members:
+
+Functions
+---------
+
+.. currentmodule:: survive
+
+.. autosummary::
+    :toctree: generated/
+    :template: function.rst
+
+    utils.check_bool
+    utils.check_colors
+    utils.check_data_1d
+    utils.check_data_2d
+    utils.check_float
+    utils.check_int
+    utils.check_random_state
