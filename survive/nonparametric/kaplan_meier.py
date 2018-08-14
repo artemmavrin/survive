@@ -45,6 +45,11 @@ class KaplanMeier(NonparametricSurvival):
         variance computations if `var_type` is "bootstrap". Ignored for other
         values of `var_type`.
 
+    method : {"product-limit", "rtr"}
+        Choose how to compute the Kaplan-Meier estimator: using the original
+        product limit definition or Efron's "redistribution-to-the-right" (RTR)
+        algorithm.
+
     Notes
     -----
     Suppose we have observed right-censored and left-truncated event times. Let
@@ -172,6 +177,12 @@ class KaplanMeier(NonparametricSurvival):
     The "log" intervals were introduced in the first edition of [4]_, and the
     "arcsin" intervals were introduced in [12]_.
 
+    The Kaplan-Meier estimator can be computed either as the product-limit
+    definition or using the "redistribution-to-the-right" (RTR) algorithm
+    discovered in [13]_ for right-censored data and extended to left-truncated
+    data in [14]_. This choice is governed by the `method` parameter. The result
+    is the same theoretically, but there may be numerical differences.
+
     References
     ----------
     .. [1] E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
@@ -212,16 +223,28 @@ class KaplanMeier(NonparametricSurvival):
     .. [12] Vijayan N. Nair.  "Confidence Bands for Survival Functions with
         Censored Data: A Comparative Study." Technometrics, Volume 26, Number 3,
         (1984), pp. 265--75. `DOI <https://doi.org/10.2307/1267553>`__.
+    .. [13] Bradley Efron. "The two sample problem with censored data".
+        Proceedings of the Fifth Berkeley Symposium on Mathematical Statistics
+        and Probability, Volume 4 (1967), 831--853.
+        `Project Euclid <https://projecteuclid.org/euclid.bsmsp/1200513831>`__.
+    .. [14] Xu Zhang, Mei-Jie Zhang, and Jason P. Fine. "A mass redistribution
+        algorithm for right-censored and left-truncated time to event data".
+        Journal of Statistical Planning and Inference, Volume 139, Issue 9
+        (2009), pp. 3329--3339,
+        `DOI <https://doi.org/10.1016/j.jspi.2009.03.007>`__.
     """
     model_type = "Kaplan-Meier estimator"
 
     _conf_types = ("arcsin", "linear", "log", "log-log", "logit")
     _var_types = ("aalen-johansen", "bootstrap", "greenwood")
     _tie_breaks = ("continuous", "discrete")
+    _methods = {"product-limit", "rtr"}
+
+    # Internal Kaplan-Meier computation method
+    _method: str
 
     # Number of bootstrap samples to draw
     _n_boot: int
-
 
     @property
     def n_boot(self):
@@ -237,9 +260,22 @@ class KaplanMeier(NonparametricSurvival):
         """
         self._n_boot = check_int(n_boot, minimum=1)
 
+    @property
+    def method(self):
+        """Method of computing the Kaplan-Meier estimator."""
+        return self._method
+
+    @method.setter
+    def method(self, method):
+        """Set the Kaplan-Meier computation method."""
+        if method in self._methods:
+            self._method = method
+        else:
+            raise ValueError(f"Invalid value for 'method': {method}.")
+
     def __init__(self, *, conf_type="log-log", conf_level=0.95,
                  var_type="greenwood", tie_break="discrete", n_boot=500,
-                 random_state=None):
+                 random_state=None, method="product-limit"):
         # Parameter validation is done in each parameter's setter method
         self.conf_type = conf_type
         self.conf_level = conf_level
@@ -247,6 +283,7 @@ class KaplanMeier(NonparametricSurvival):
         self.tie_break = tie_break
         self.n_boot = n_boot
         self.random_state = random_state
+        self.method = method
 
     def fit(self, time, **kwargs):
         """Fit the Kaplan-Meier estimator to survival data.
@@ -291,8 +328,16 @@ class KaplanMeier(NonparametricSurvival):
             d = self._data.events[group].n_events
             y = self._data.events[group].n_at_risk
 
-            # Product-limit survival probability estimates
-            self.estimate_.append(np.cumprod(1. - d / y))
+            # Compute the Kaplan-Meier estimator at the event times
+            if self.method == "product-limit":
+                # Product-limit estimator
+                self.estimate_.append(np.cumprod(1. - d / y))
+            elif self.method == "rtr":
+                # Efron's redistribution-to-the-right estimator
+                self.estimate_.append(_km_fit_efron(data=self._data, index=i))
+            else:
+                # This should be unreachable
+                raise RuntimeError(f"Invalid method: {self._method}.")
 
             # In the following block, the variable ``sigma2`` is the variance
             # estimate divided by the square of the survival function
@@ -392,6 +437,53 @@ class KaplanMeier(NonparametricSurvival):
 
         self.fitted = True
         return self
+
+
+def _km_fit_efron(data: SurvivalData, index):
+    """Compute the Kaplan-Meier estimator using the redistribution to the right
+    algorithm.
+
+    See Efron (1967) and Zhang et al. (2009) (cf. KaplanMeier docstring).
+
+    Parameters
+    ----------
+    data : SurvivalData
+        Survival data used to fit the Kaplan-Meier estimator.
+
+    index : int
+        The group index.
+
+    Returns
+    -------
+    numpy.ndarray
+        The survival probability estimates for a group.
+    """
+    group = data.group_labels[index]
+    mask = (data.group == group)
+    time = data.time[mask]
+    status = data.status[mask]
+    entry = data.entry[mask]
+
+    mask_event = (status == 1)
+
+    e_times = data.events[group].time
+    k = len(e_times)
+
+    mass_left = 0.
+    mass_right = 1.
+
+    # Redistribute the mass to all the observed times
+    survival = np.zeros(k, dtype=np.float_)
+    for i, e_time in enumerate(e_times):
+        y = np.sum((entry < e_time) & (e_time <= time))
+        d = np.sum((time == e_time) & mask_event)
+
+        mass_left, mass_right = \
+            mass_left + mass_right * d / y, mass_right * (y - d) / y
+
+        survival[i] = mass_right
+
+    return survival
 
 
 def _km_var_boot(data: SurvivalData, index, random_state, n_boot):
