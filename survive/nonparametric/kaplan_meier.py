@@ -238,7 +238,7 @@ class KaplanMeier(NonparametricSurvival):
     _conf_types = ("arcsin", "linear", "log", "log-log", "logit")
     _var_types = ("aalen-johansen", "bootstrap", "greenwood")
     _tie_breaks = ("continuous", "discrete")
-    _methods = {"product-limit", "rtr"}
+    _methods = ("product-limit", "rtr")
 
     # Internal Kaplan-Meier computation method
     _method: str
