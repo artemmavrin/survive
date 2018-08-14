@@ -1,6 +1,8 @@
 PYTHON := python3
+PYLINT := pylint
+PACKAGE := survive
 
-.PHONY: all install html test clean
+.PHONY: all install html test clean lint
 
 all: install html
 
@@ -12,6 +14,9 @@ html: clean
 
 test:
 	${PYTHON} -m unittest discover --verbose
+
+lint:
+	${PYLINT} ${PACKAGE}
 
 clean:
 	rm -rf build dist *.egg-info doc/build doc/source/generated
