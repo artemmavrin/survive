@@ -26,5 +26,6 @@ setup(
     extras_require={"seaborn": ["seaborn"]},
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    license="MIT"
+    license="MIT",
+    zip_safe=False,
 )

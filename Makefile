@@ -1,29 +1,45 @@
 PYTHON := python3
-PYLINT := pylint
+LINT := pylint
 SETUP := setup.py
-
+SETUPOPTS := -q
 PACKAGE := survive
+DOC := doc
+RM := rm -rf
 
-.PHONY: all install html test clean lint
+.PHONY: help install uninstall html test clean lint trim
 
-all: install html
+help:
+	@ echo "Usage:"
+	@ echo "\tmake install   \t install the package using setuptools."
+	@ echo "\tmake html      \t generate documentation using sphinx."
+	@ echo "\tmake test      \t run unit tests using pytest."
+	@ echo "\tmake lint      \t check the code using pylint."
+	@ echo "\tmake clean     \t remove auxiliary files."
 
 install: clean
-	${PYTHON} ${SETUP} install
+	$(PYTHON) $(SETUP) $(SETUPOPTS) install
 
 html: clean
-	mkdir -p doc/source/_static
-	make -C doc html
+	@ mkdir -p $(DOC)/source/_static
+	make -C $(DOC) html SPHINXOPTS+='-q -W'
 
-test: #install
-	${PYTHON} ${SETUP} test
+test:
+	$(PYTHON) $(SETUP) $(SETUPOPTS) test
 
 lint:
-	${PYLINT} ${PACKAGE}
+	$(LINT) $(PACKAGE)
 
-clean:
-	rm -rf build dist *.egg-info doc/build doc/source/generated
-	find . -name "__pycache__" -type d | xargs rm -rf
-	find . -name ".ipynb_checkpoints" -type d | xargs rm -rf
-	find . -name "*.pyc" -type f | xargs rm -f
-	find . -type d -empty -delete
+clean: trim clean_doc
+	@ $(RM) build dist *.egg-info .eggs
+	@ find . -name "__pycache__" -type d | xargs rm -rf
+	@ find . -name ".ipynb_checkpoints" -type d | xargs rm -rf
+	@ find . -name "*.pyc" -type f | xargs rm -f
+	@ find . -name ".DS_Store" -type f | xargs rm -f
+	@ find . -type d -empty -delete
+
+clean_doc:
+	@ $(RM) $(DOC)/build $(DOC)/source/generated
+
+# Strip any trailing whitespace from source code
+trim:
+	@ find $(PACKAGE) -name "*.py" -exec sed -i 's/[[:space:]]*$$//' {} \;
