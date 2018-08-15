@@ -5,7 +5,7 @@ import inspect
 
 import numpy as np
 
-from ..utils import check_random_state
+from ..utils import check_int, check_random_state
 
 
 class Model(metaclass=abc.ABCMeta):
@@ -52,27 +52,36 @@ class Model(metaclass=abc.ABCMeta):
         self._random_state_seed = random_state
         self._random_state = check_random_state(random_state)
 
-    @property
-    def as_string(self):
+    def to_string(self, max_line_length=75):
         """String representation of this model.
 
-        Notes
-        -----
-        The formatting algorithm is modified from :func:`sklearn.base._pprint`.
+        Parameters
+        ----------
+        max_line_length : int, optional
+            Specifies the maximum length of a line. If None, everything will be
+            on one line.
 
         Returns
         -------
         model_string : str
-            A pretty-printed string representation of this model which should be
-            able to be used to instantiate a new identical model.
+            A string representation of this model which should be able to be
+            used to instantiate a new identical model.
         """
+        # This formatting algorithm is modified from sklearn.base._pprint()
+
+        # Validate parameters
+        max_line_length = check_int(max_line_length, minimum=1,
+                                    allow_none=True)
+
+        # The offset is the amount to indent the second and subsequent lines
         class_name = self.__class__.__name__
         offset = len(class_name) + 1
-        max_line_length = 75
 
+        # Get the parameters used to initialize this model
         keys = sorted(inspect.signature(self.__init__).parameters.keys())
         params = {k: getattr(self, k) for k in keys}
 
+        # Build the string
         params_list = list()
         this_line_length = offset
         line_sep = ",\n" + offset * " "
@@ -82,8 +91,9 @@ class Model(metaclass=abc.ABCMeta):
             else:
                 this_repr = f"{k}={repr(v)}"
             if i > 0:
-                if (this_line_length + len(this_repr) >= max_line_length
-                        or "\n" in this_repr):
+                if (max_line_length is not None and
+                        (this_line_length + len(this_repr) >= max_line_length
+                         or "\n" in this_repr)):
                     # Start a new line
                     params_list.append(line_sep)
                     this_line_length = len(line_sep)
@@ -100,7 +110,7 @@ class Model(metaclass=abc.ABCMeta):
         return f"{class_name}({lines})"
 
     def __repr__(self):
-        return self.as_string
+        return self.to_string()
 
     @property
     def summary(self):
