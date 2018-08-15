@@ -1,5 +1,7 @@
 PYTHON := python3
 PYLINT := pylint
+SETUP := setup.py
+
 PACKAGE := survive
 
 .PHONY: all install html test clean lint
@@ -7,13 +9,14 @@ PACKAGE := survive
 all: install html
 
 install: clean
-	${PYTHON} setup.py install
+	${PYTHON} ${SETUP} install
 
 html: clean
+	mkdir -p doc/source/_static
 	make -C doc html
 
-test:
-	${PYTHON} -m unittest discover --verbose
+test: #install
+	${PYTHON} ${SETUP} test
 
 lint:
 	${PYLINT} ${PACKAGE}
@@ -23,3 +26,4 @@ clean:
 	find . -name "__pycache__" -type d | xargs rm -rf
 	find . -name ".ipynb_checkpoints" -type d | xargs rm -rf
 	find . -name "*.pyc" -type f | xargs rm -f
+	find . -type d -empty -delete

@@ -20,9 +20,11 @@ setup(
     url="https://github.com/artemmavrin/survive",
     author="Artem Mavrin",
     author_email="amavrin@ucsd.edu",
-    packages=sorted(find_packages(exclude=("*.test",))),
+    packages=sorted(find_packages()),
     include_package_data=True,
     install_requires=["numpy", "scipy", "pandas", "matplotlib"],
     extras_require={"seaborn": ["seaborn"]},
+    setup_requires=["pytest-runner"],
+    tests_require=["pytest"],
     license="MIT"
 )
