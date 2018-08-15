@@ -1,5 +1,6 @@
 """Miscellaneous utility functions."""
 
+from .plotting import add_legend
 from .validation import check_bool
 from .validation import check_colors
 from .validation import check_data_1d

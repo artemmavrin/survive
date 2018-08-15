@@ -118,7 +118,7 @@ class Model(metaclass=abc.ABCMeta):
         return Summary(self)
 
 
-class Summary(object):
+class Summary:
     """Base class for summaries of survival models (intended for subclassing).
 
     Parameters

@@ -45,11 +45,6 @@ class KaplanMeier(NonparametricSurvival):
         variance computations if `var_type` is "bootstrap". Ignored for other
         values of `var_type`.
 
-    method : {"product-limit", "rtr"}
-        Choose how to compute the Kaplan-Meier estimator: using the original
-        product limit definition or Efron's "redistribution-to-the-right" (RTR)
-        algorithm.
-
     Notes
     -----
     Suppose we have observed right-censored and left-truncated event times. Let
@@ -177,12 +172,6 @@ class KaplanMeier(NonparametricSurvival):
     The "log" intervals were introduced in the first edition of [4]_, and the
     "arcsin" intervals were introduced in [12]_.
 
-    The Kaplan-Meier estimator can be computed either as the product-limit
-    definition or using the "redistribution-to-the-right" (RTR) algorithm
-    discovered in [13]_ for right-censored data and extended to left-truncated
-    data in [14]_. This choice is governed by the `method` parameter. The result
-    is the same theoretically, but there may be numerical differences.
-
     References
     ----------
     .. [1] E. L. Kaplan and P. Meier. "Nonparametric estimation from incomplete
@@ -223,25 +212,12 @@ class KaplanMeier(NonparametricSurvival):
     .. [12] Vijayan N. Nair.  "Confidence Bands for Survival Functions with
         Censored Data: A Comparative Study." Technometrics, Volume 26, Number 3,
         (1984), pp. 265--75. `DOI <https://doi.org/10.2307/1267553>`__.
-    .. [13] Bradley Efron. "The two sample problem with censored data".
-        Proceedings of the Fifth Berkeley Symposium on Mathematical Statistics
-        and Probability, Volume 4 (1967), 831--853.
-        `Project Euclid <https://projecteuclid.org/euclid.bsmsp/1200513831>`__.
-    .. [14] Xu Zhang, Mei-Jie Zhang, and Jason P. Fine. "A mass redistribution
-        algorithm for right-censored and left-truncated time to event data".
-        Journal of Statistical Planning and Inference, Volume 139, Issue 9
-        (2009), pp. 3329--3339,
-        `DOI <https://doi.org/10.1016/j.jspi.2009.03.007>`__.
     """
     model_type = "Kaplan-Meier estimator"
 
     _conf_types = ("arcsin", "linear", "log", "log-log", "logit")
     _var_types = ("aalen-johansen", "bootstrap", "greenwood")
     _tie_breaks = ("continuous", "discrete")
-    _methods = ("product-limit", "rtr")
-
-    # Internal Kaplan-Meier computation method
-    _method: str
 
     # Number of bootstrap samples to draw
     _n_boot: int
@@ -260,22 +236,9 @@ class KaplanMeier(NonparametricSurvival):
         """
         self._n_boot = check_int(n_boot, minimum=1)
 
-    @property
-    def method(self):
-        """Method of computing the Kaplan-Meier estimator."""
-        return self._method
-
-    @method.setter
-    def method(self, method):
-        """Set the Kaplan-Meier computation method."""
-        if method in self._methods:
-            self._method = method
-        else:
-            raise ValueError(f"Invalid value for 'method': {method}.")
-
     def __init__(self, *, conf_type="log-log", conf_level=0.95,
                  var_type="greenwood", tie_break="discrete", n_boot=500,
-                 random_state=None, method="product-limit"):
+                 random_state=None):
         # Parameter validation is done in each parameter's setter method
         self.conf_type = conf_type
         self.conf_level = conf_level
@@ -283,7 +246,6 @@ class KaplanMeier(NonparametricSurvival):
         self.tie_break = tie_break
         self.n_boot = n_boot
         self.random_state = random_state
-        self.method = method
 
     def fit(self, time, **kwargs):
         """Fit the Kaplan-Meier estimator to survival data.
@@ -318,239 +280,234 @@ class KaplanMeier(NonparametricSurvival):
 
         # Compute the Kaplan-Meier product-limit estimator and related
         # quantities at the distinct failure times within each group
-        self.estimate_ = []
-        self.estimate_var_ = []
-        self.estimate_ci_lower_ = []
-        self.estimate_ci_upper_ = []
-        for i, group in enumerate(self._data.group_labels):
-            # d = number of events at an event time, y = size of the risk set at
-            # an event time
-            d = self._data.events[group].n_events
-            y = self._data.events[group].n_at_risk
+        self.estimate_ = dict()
+        self.var_ = dict()
+        self.ci_lower_ = dict()
+        self.ci_upper_ = dict()
+        for group in self._data.group_labels:
+            n_events = self._data.events[group].n_events
+            n_at_risk = self._data.events[group].n_at_risk
 
             # Compute the Kaplan-Meier estimator at the event times
-            if self.method == "product-limit":
-                # Product-limit estimator
-                self.estimate_.append(np.cumprod(1. - d / y))
-            elif self.method == "rtr":
-                # Efron's redistribution-to-the-right estimator
-                self.estimate_.append(_km_fit_efron(data=self._data, index=i))
-            else:
-                # This should be unreachable
-                raise RuntimeError(f"Invalid method: {self._method}.")
+            survival = _km_fit(n_events=n_events, n_at_risk=n_at_risk)
+            self.estimate_[group] = survival
 
-            # In the following block, the variable ``sigma2`` is the variance
-            # estimate divided by the square of the survival function
-            # estimate. It arises again in our confidence interval computations
-            # later.
-            if self._var_type == "bootstrap":
-                # Estimate the survival function variance using the bootstrap
-                var = _km_var_boot(data=self._data, index=i,
-                                   random_state=self._random_state,
-                                   n_boot=self.n_boot)
-                self.estimate_var_.append(var)
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    sigma2 = self.estimate_var_[i] / (self.estimate_[i] ** 2)
-            else:
-                # Estimate the survival function variance using Greenwood's
-                # formula or the Aalen-Johansen method
-                if self._var_type == "greenwood":
-                    # Greenwood's formula
-                    with np.errstate(divide="ignore"):
-                        sigma2 = np.cumsum(d / y / (y - d))
-                elif self._var_type == "aalen-johansen":
-                    # Aalen-Johansen estimate
-                    if self._tie_break == "discrete":
-                        sigma2 = np.cumsum(d / (y ** 2))
-                    elif self._tie_break == "continuous":
-                        # Increments of sum in equation (3.14) on page 84 of
-                        # Aalen, Borgan, & Gjessing (2008)
-                        inc = np.empty(len(d), dtype=np.float_)
-                        for j in range(len(d)):
-                            inc[j] = np.sum(1 / (y[j] - np.arange(d[j])) ** 2)
-                        sigma2 = np.cumsum(inc)
-                    else:
-                        # This should not be reachable
-                        raise RuntimeError(
-                            f"Invalid tie-breaking scheme: {self._tie_break}.")
-                else:
-                    # This should not be reachable
-                    raise RuntimeError(
-                        f"Invalid variance type: {self._var_type}.")
+            # `variance` is the variance of the Kaplan-Meier estimator, `sigma2`
+            # is the variance of a related cumulative hazard estimator that
+            # might be used for confidence interval computations later
+            variance, sigma2 = _km_var(survival=survival, n_events=n_events,
+                                       n_at_risk=n_at_risk, data=self._data,
+                                       group=group,
+                                       random_state=self._random_state,
+                                       n_boot=self._n_boot,
+                                       var_type=self._var_type,
+                                       tie_break=self._tie_break)
+            self.var_[group] = variance
 
-                with np.errstate(invalid="ignore"):
-                    self.estimate_var_.append((self.estimate_[i] ** 2) * sigma2)
-
-            # Standard normal quantile for confidence intervals
-            z = st.norm.ppf((1 - self.conf_level) / 2)
-
-            # Compute confidence intervals at the observed event times
-            if self._conf_type == "linear":
-                # Normal approximation CI
-                c = z * np.sqrt(self.estimate_var_[i])
-                lower = self.estimate_[i] + c
-                upper = self.estimate_[i] - c
-            elif self._conf_type == "log":
-                # CI based on a delta method CI for log(S(t))
-                with np.errstate(invalid="ignore"):
-                    c = z * np.sqrt(sigma2)
-                    lower = self.estimate_[i] * np.exp(c)
-                    upper = self.estimate_[i] * np.exp(-c)
-            elif self._conf_type == "log-log":
-                # CI based on a delta method CI for -log(-log(S(t)))
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    c = z * np.sqrt(sigma2) / np.log(self.estimate_[i])
-                    lower = self.estimate_[i] ** np.exp(c)
-                    upper = self.estimate_[i] ** np.exp(-c)
-            elif self._conf_type == "logit":
-                # CI based on a delta method CI for log(S(t)/(1-S(t)))
-                with np.errstate(invalid="ignore"):
-                    odds = self.estimate_[i] / (1 - self.estimate_[i])
-                    c = z * np.sqrt(sigma2) / (1 - self.estimate_[i])
-                    lower = 1 - 1 / (1 + odds * np.exp(c))
-                    upper = 1 - 1 / (1 + odds * np.exp(-c))
-                pass
-            elif self._conf_type == "arcsin":
-                # CI based on a delta method CI for arcsin(sqrt(S(t))
-                with np.errstate(invalid="ignore"):
-                    arcsin = np.arcsin(np.sqrt(self.estimate_[i]))
-                    odds = self.estimate_[i] / (1 - self.estimate_[i])
-                    c = 0.5 * z * np.sqrt(odds * sigma2)
-                    lower = np.sin(np.maximum(0., arcsin + c)) ** 2
-                    upper = np.sin(np.minimum(np.pi / 2, arcsin - c)) ** 2
-            else:
-                # This should not be reachable
-                raise RuntimeError(
-                    f"Invalid confidence interval type: {self._conf_type}.")
-
-            # Force confidence interval bounds to be between 0 and 1
-            with np.errstate(invalid="ignore"):
-                self.estimate_ci_lower_.append(np.maximum(lower, 0.))
-                self.estimate_ci_upper_.append(np.minimum(upper, 1.))
+            self.ci_lower_[group], self.ci_upper_[group] = \
+                _km_ci(survival=survival, variance=variance, sigma2=sigma2,
+                       conf_type=self._conf_type, conf_level=self._conf_level)
 
             # Make sure that variance estimates and confidence intervals are NaN
             # when the estimated survival probability is zero
-            ind_zero = (self.estimate_[i] == 0.)
-            self.estimate_var_[i][ind_zero] = np.nan
-            self.estimate_ci_lower_[i][ind_zero] = np.nan
-            self.estimate_ci_upper_[i][ind_zero] = np.nan
+            mask = (survival == 0.)
+            self.var_[group][mask] = np.nan
+            self.ci_lower_[group][mask] = np.nan
+            self.ci_upper_[group][mask] = np.nan
 
         self.fitted = True
         return self
 
 
-def _km_fit_efron(data: SurvivalData, index):
-    """Compute the Kaplan-Meier estimator using the redistribution to the right
-    algorithm.
-
-    See Efron (1967) and Zhang et al. (2009) (cf. KaplanMeier docstring).
-
-    Parameters
-    ----------
-    data : SurvivalData
-        Survival data used to fit the Kaplan-Meier estimator.
-
-    index : int
-        The group index.
-
-    Returns
-    -------
-    numpy.ndarray
-        The survival probability estimates for a group.
-    """
-    group = data.group_labels[index]
-    mask = (data.group == group)
-    time = data.time[mask]
-    status = data.status[mask]
-    entry = data.entry[mask]
-
-    mask_event = (status == 1)
-
-    e_times = data.events[group].time
-    k = len(e_times)
-
-    mass_left = 0.
-    mass_right = 1.
-
-    # Redistribute the mass to all the observed times
-    survival = np.zeros(k, dtype=np.float_)
-    for i, e_time in enumerate(e_times):
-        y = np.sum((entry < e_time) & (e_time <= time))
-        d = np.sum((time == e_time) & mask_event)
-
-        mass_left, mass_right = \
-            mass_left + mass_right * d / y, mass_right * (y - d) / y
-
-        survival[i] = mass_right
-
-    return survival
+def _km_fit(n_events, n_at_risk):
+    """Compute the Kaplan-Meier estimator."""
+    return np.cumprod(1. - n_events / n_at_risk)
 
 
-def _km_var_boot(data: SurvivalData, index, random_state, n_boot):
-    """Estimate Kaplan-Meier survival function variance using the bootstrap.
+def _km_var(survival, n_events, n_at_risk, data: SurvivalData, group,
+            random_state, n_boot, var_type, tie_break):
+    """Compute the variance of the Kaplan-Meier estimator."""
+    if var_type == "greenwood":
+        # Greenwood's formula
+        variance, sigma2 = _km_var_greenwood(survival=survival,
+                                             n_events=n_events,
+                                             n_at_risk=n_at_risk)
+    elif var_type == "aalen-johansen":
+        # Aalen-Johansen variance estimate
+        variance, sigma2 = _km_var_aalen_johansen(survival=survival,
+                                                  n_events=n_events,
+                                                  n_at_risk=n_at_risk,
+                                                  tie_break=tie_break)
+    elif var_type == "bootstrap":
+        # Estimate the survival function variance using the bootstrap
+        variance, sigma2 = _km_var_bootstrap(survival=survival, data=data,
+                                             group=group,
+                                             random_state=random_state,
+                                             n_boot=n_boot)
+    else:
+        # This should not be reachable
+        raise RuntimeError(f"Invalid variance type: {var_type}.")
 
-    Parameters
-    ----------
-    data : SurvivalData
-        Survival data used to fit the Kaplan-Meier estimator.
+    return variance, sigma2
 
-    index : int
-        The group index.
 
-    random_state : numpy.random.RandomState
-        Random number generator.
+def _km_var_greenwood(survival, n_events, n_at_risk):
+    """Estimate the Kaplan-Meier variance using Greenwood's formula."""
+    with np.errstate(divide="ignore"):
+        sigma2 = np.cumsum(n_events / n_at_risk / (n_at_risk - n_events))
+        variance = (survival ** 2) * sigma2
+    return variance, sigma2
 
-    n_boot : int
-        Number of bootstrap samples to draw.
 
-    Returns
-    -------
-    numpy.ndarray
-        One-dimensional array of survival function variance estimates at each
-        observed event time.
-    """
+def _km_var_aalen_johansen(survival, n_events, n_at_risk, tie_break):
+    """Estimate the Kaplan-Meier variance using the Aalen-Johansen formula."""
+    if tie_break == "discrete":
+        sigma2 = np.cumsum(n_events / (n_at_risk ** 2))
+    elif tie_break == "continuous":
+        # Increments of sum in equation (3.14) on page 84 of Aalen, Borgan, and
+        # Gjessing (2008)
+        k = len(n_events)
+        inc = np.empty(k, dtype=np.float_)
+        for j in range(k):
+            inc[j] = np.sum(1 / (n_at_risk[j] - np.arange(n_events[j])) ** 2)
+        sigma2 = np.cumsum(inc)
+    else:
+        # This should not be reachable
+        raise RuntimeError(f"Invalid tie-breaking scheme: {tie_break}.")
+
+    with np.errstate(divide="ignore"):
+        variance = (survival ** 2) * sigma2
+
+    return variance, sigma2
+
+
+def _km_var_bootstrap(survival, data: SurvivalData, group, random_state,
+                      n_boot):
+    """Estimate Kaplan-Meier survival function variance using the bootstrap."""
     # Extract observed times, censoring indicators, and entry times for the
     # specified group
-    ind = (data.group == data.group_labels[index])
-    time = np.asarray(data.time[ind])
-    status = np.asarray(data.status[ind])
-    entry = np.asarray(data.entry[ind])
+    mask = (data.group == group)
+    time = np.asarray(data.time[mask])
+    status = np.asarray(data.status[mask])
+    entry = np.asarray(data.entry[mask])
+
+    sample_size = time.shape[0]
 
     # Distinct true event times
-    events = np.unique(time[status == 1])
-
-    # n = sample size, k = number of distinct true events
-    n = len(time)
-    k = len(events)
+    event_times = np.asarray(data.events[group].time)
+    n_event_times = event_times.shape[0]
 
     # Initialize array of bootstrap Kaplan-Meier survival function estimates at
     # the observed true event times
-    survival_boot = np.empty(shape=(n_boot, k), dtype=np.float_)
+    survival_boot = np.empty(shape=(n_boot, n_event_times), dtype=np.float_)
 
     # The bootstrap
     for i in range(n_boot):
         # Draw a bootstrap sample
-        ind_boot = random_state.choice(n, size=n, replace=True)
-        time_boot = time[ind_boot]
-        status_boot = status[ind_boot]
-        entry_boot = entry[ind_boot]
+        ind_b = random_state.choice(sample_size, size=sample_size, replace=True)
+        time_b = time[ind_b]
+        status_b = status[ind_b]
+        entry_b = entry[ind_b]
 
-        # e = number of events at an event time, r = size of the risk set at an
-        # event time
-        e = np.empty(shape=(k,), dtype=np.int_)
-        r = np.empty(shape=(k,), dtype=np.int_)
-        for j, t in enumerate(events):
-            e[j] = np.sum((time_boot == t) & (status_boot == 1))
-            r[j] = np.sum((entry_boot <= t) & (time_boot >= t))
+        n_events = np.empty(shape=(n_event_times,), dtype=np.int_)
+        n_at_risk = np.empty(shape=(n_event_times,), dtype=np.int_)
+        for j, e_time in enumerate(event_times):
+            n_events[j] = np.sum((time_b == e_time) & (status_b == 1))
+            n_at_risk[j] = np.sum((entry_b <= e_time) & (time_b >= e_time))
 
         # Compute the survival curve
         with np.errstate(divide="ignore", invalid="ignore"):
-            survival_boot[i] = np.cumprod(1. - e / r)
+            survival_boot[i] = _km_fit(n_events=n_events, n_at_risk=n_at_risk)
 
         # Special case: if sufficiently late times didn't make it into our
         # bootstrap sample, then the risk set at those time is empty and the
         # resulting survival function estimates are nan (not a number). Instead,
         # make the survival probability at these times zero.
-        survival_boot[i, r == 0] = 0.
+        survival_boot[i, n_at_risk == 0] = 0.
 
-    return survival_boot.var(axis=0, ddof=1)
+    variance = survival_boot.var(axis=0, ddof=0)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        sigma2 = variance / (survival ** 2)
+
+    return variance, sigma2
+
+
+def _km_ci(survival, variance, sigma2, conf_type, conf_level):
+    """Compute Kaplan-Meier estimator confidence intervals."""
+    # Standard normal quantiles for normal approximation confidence intervals
+    quantile = st.norm.ppf((1 - conf_level) / 2)
+
+    # Compute confidence intervals at the observed event times
+    if conf_type == "linear":
+        lower, upper = _km_ci_linear(survival=survival, variance=variance,
+                                     quantile=quantile)
+    elif conf_type == "log":
+        lower, upper = _km_ci_log(survival=survival, sigma2=sigma2,
+                                  quantile=quantile)
+    elif conf_type == "log-log":
+        lower, upper = _km_ci_log_log(survival=survival, sigma2=sigma2,
+                                      quantile=quantile)
+    elif conf_type == "logit":
+        lower, upper = _km_ci_logit(survival=survival, sigma2=sigma2,
+                                    quantile=quantile)
+    elif conf_type == "arcsin":
+        lower, upper = _km_ci_arcsin(survival=survival, sigma2=sigma2,
+                                     quantile=quantile)
+    else:
+        # This should not be reachable
+        raise RuntimeError(f"Invalid confidence interval type: {conf_type}.")
+
+    # Force confidence interval bounds to be between 0 and 1
+    with np.errstate(invalid="ignore"):
+        lower = np.maximum(lower, 0.)
+        upper = np.minimum(upper, 1.)
+
+    return lower, upper
+
+
+def _km_ci_linear(survival, variance, quantile):
+    """Plain normal approximation CI."""
+    error = quantile * np.sqrt(variance)
+    lower = survival + error
+    upper = survival - error
+    return lower, upper
+
+
+def _km_ci_log(survival, sigma2, quantile):
+    """CI based on a delta method CI for log(S(t))."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        error = quantile * np.sqrt(sigma2)
+        lower = survival * np.exp(error)
+        upper = survival * np.exp(-error)
+    return lower, upper
+
+
+def _km_ci_log_log(survival, sigma2, quantile):
+    """CI based on a delta method CI for -log(-log(S(t)))."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        error = quantile * np.sqrt(sigma2) / np.log(survival)
+        lower = survival ** np.exp(error)
+        upper = survival ** np.exp(-error)
+    return lower, upper
+
+
+def _km_ci_logit(survival, sigma2, quantile):
+    """CI based on a delta method CI for log(S(t)/(1-S(t)))."""
+    with np.errstate(invalid="ignore"):
+        odds = survival / (1 - survival)
+        error = np.exp(quantile * np.sqrt(sigma2) / (1 - survival))
+        lower = 1 - 1 / (1 + odds * error)
+        upper = 1 - 1 / (1 + odds / error)
+    return lower, upper
+
+
+def _km_ci_arcsin(survival, sigma2, quantile):
+    """CI based on a delta method CI for arcsin(sqrt(S(t))."""
+    with np.errstate(invalid="ignore"):
+        arcsin = np.arcsin(np.sqrt(survival))
+        odds = survival / (1 - survival)
+        error = 0.5 * quantile * np.sqrt(odds * sigma2)
+        lower = np.sin(np.maximum(0., arcsin + error)) ** 2
+        upper = np.sin(np.minimum(np.pi / 2, arcsin - error)) ** 2
+    return lower, upper

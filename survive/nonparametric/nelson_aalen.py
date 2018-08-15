@@ -3,8 +3,12 @@
 import numpy as np
 import scipy.stats as st
 
-from .base import NonparametricEstimator
+from .base import NonparametricEstimator, NonparametricSurvival
 from ..survival_data import SurvivalData
+
+_NELSON_AALEN_CONF_TYPES = ("linear", "log")
+_NELSON_AALEN_VAR_TYPES = ("aalen", "greenwood")
+_NELSON_AALEN_TIE_BREAKS = ("continuous", "discrete")
 
 
 class NelsonAalen(NonparametricEstimator):
@@ -156,9 +160,9 @@ class NelsonAalen(NonparametricEstimator):
     _estimand = "cumulative hazard"
     _estimate0 = 0.
 
-    _conf_types = ("linear", "log")
-    _var_types = ("aalen", "greenwood")
-    _tie_breaks = ("continuous", "discrete")
+    _conf_types = _NELSON_AALEN_CONF_TYPES
+    _var_types = _NELSON_AALEN_VAR_TYPES
+    _tie_breaks = _NELSON_AALEN_TIE_BREAKS
 
     def __init__(self, *, conf_type="log", conf_level=0.95,
                  var_type="aalen", tie_break="discrete"):
@@ -200,75 +204,243 @@ class NelsonAalen(NonparametricEstimator):
 
         # Compute the Nelson-Aalen estimator and related quantities at the
         # distinct failure times within each group
-        self.estimate_ = []
-        self.estimate_var_ = []
-        self.estimate_ci_lower_ = []
-        self.estimate_ci_upper_ = []
-        for i, group in enumerate(self._data.group_labels):
-            # d = number of events at an event time, y = size of the risk set at
-            # an event time
-            d = self._data.events[group].n_events
-            y = self._data.events[group].n_at_risk
+        self.estimate_ = dict()
+        self.var_ = dict()
+        self.ci_lower_ = dict()
+        self.ci_upper_ = dict()
+        for group in self._data.group_labels:
+            n_events = self._data.events[group].n_events
+            n_at_risk = self._data.events[group].n_at_risk
 
-            # Compute the Nelson-Aalen estimator increments
-            if self._tie_break == "discrete":
-                na_inc = d / y
-            elif self._tie_break == "continuous":
-                na_inc = np.empty(len(d), dtype=np.float_)
-                for j in range(len(d)):
-                    na_inc[j] = np.sum(1 / (y[j] - np.arange(d[j])))
-            else:
-                # This should not be reachable
-                raise RuntimeError(
-                    f"Invalid tie-breaking scheme: {self._tie_break}.")
+            # Compute the Nelson-Aalen estimator
+            estimate = _nelson_aalen_fit(n_events=n_events, n_at_risk=n_at_risk,
+                                         tie_break=self._tie_break)
+            self.estimate_[group] = estimate
 
-            # Compute the variance estimate increments
-            if self._var_type == "greenwood":
-                var_inc = (y - d) * d / (y ** 3)
-            elif self.var_type == "aalen":
-                if self._tie_break == "discrete":
-                    var_inc = d / (y ** 2)
-                elif self._tie_break == "continuous":
-                    var_inc = np.empty(len(d), dtype=np.float_)
-                    for j in range(len(d)):
-                        var_inc[j] = np.sum(1 / (y[j] - np.arange(d[j])) ** 2)
-                else:
-                    # This should not be reachable
-                    raise RuntimeError(
-                        f"Invalid tie-breaking scheme: {self._tie_break}.")
-            else:
-                # This should not be reachable
-                raise RuntimeError(
-                    f"Invalid variance type: {self._var_type}.")
+            # Estimate the variance of the Nelson-Aalen estimator
+            variance = _nelson_aalen_var(n_events=n_events, n_at_risk=n_at_risk,
+                                         var_type=self._var_type,
+                                         tie_break=self._tie_break)
+            self.var_[group] = variance
 
-            # Compute Nelson-Aalen estimate and variance estimates
-            self.estimate_.append(np.cumsum(na_inc))
-            self.estimate_var_.append(np.cumsum(var_inc))
+            # Construct confidence intervals at the distinct event times
+            self.ci_lower_[group], self.ci_upper_[group] = \
+                _nelson_aalen_ci(estimate=estimate, variance=variance,
+                                 conf_type=self._conf_type,
+                                 conf_level=self._conf_level)
 
-            # Standard normal quantile for confidence intervals
-            z = st.norm.ppf((1 - self.conf_level) / 2)
+        self.fitted = True
+        return self
 
-            # Compute confidence intervals at the observed event times
-            if self._conf_type == "linear":
-                # Normal approximation CI
-                c = z * np.sqrt(self.estimate_var_[i])
-                lower = self.estimate_[i] + c
-                upper = self.estimate_[i] - c
-            elif self.conf_type == "log":
-                se = np.sqrt(self.estimate_var_[i])
-                estimate = self.estimate_[i]
-                a = np.exp(z * se / estimate)
-                lower = estimate * a
-                upper = estimate / a
-            else:
-                # This should not be reachable
-                raise RuntimeError(
-                    f"Invalid confidence interval type: {self._conf_type}.")
 
-            # Force confidence interval lower bound to be 0
-            with np.errstate(invalid="ignore"):
-                self.estimate_ci_lower_.append(np.maximum(lower, 0.))
-                self.estimate_ci_upper_.append(upper)
+def _nelson_aalen_fit(n_events, n_at_risk, tie_break):
+    """Compute the Nelson-Aalen estimator."""
+    # Compute the Nelson-Aalen estimator increments
+    if tie_break == "discrete":
+        increments = n_events / n_at_risk
+    elif tie_break == "continuous":
+        k = n_events.shape[0]
+        increments = np.empty(k, dtype=np.float_)
+        for j in range(k):
+            increments[j] = np.sum(1 / (n_at_risk[j] - np.arange(n_events[j])))
+    else:
+        # This should not be reachable
+        raise RuntimeError(f"Invalid tie-breaking scheme: {tie_break}.")
+
+    return np.cumsum(increments)
+
+
+def _nelson_aalen_var(n_events, n_at_risk, var_type, tie_break):
+    """Estimate the variance of the Nelson-Aalen estimator."""
+    if var_type == "greenwood":
+        increments = (n_at_risk - n_events) * n_events / (n_at_risk ** 3)
+    elif var_type == "aalen":
+        if tie_break == "discrete":
+            increments = n_events / (n_at_risk ** 2)
+        elif tie_break == "continuous":
+            k = n_events.shape[0]
+            increments = np.empty(k, dtype=np.float_)
+            for j in range(k):
+                denominator = (n_at_risk[j] - np.arange(n_events[j])) ** 2
+                increments[j] = np.sum(1 / denominator)
+        else:
+            # This should not be reachable
+            raise RuntimeError(f"Invalid tie-breaking scheme: {tie_break}.")
+    else:
+        # This should not be reachable
+        raise RuntimeError(f"Invalid variance type: {var_type}.")
+
+    return np.cumsum(increments)
+
+
+def _nelson_aalen_ci(estimate, variance, conf_type, conf_level):
+    """Construct confidence intervals for the Nelson-Aalen estimates."""
+    # Standard normal quantile for normal approximation confidence intervals
+    quantile = st.norm.ppf((1 - conf_level) / 2)
+
+    # Compute confidence intervals at the observed event times
+    if conf_type == "linear":
+        error = quantile * np.sqrt(variance)
+        lower = estimate + error
+        upper = estimate - error
+    elif conf_type == "log":
+        error = np.exp(quantile * np.sqrt(variance) / estimate)
+        lower = estimate * error
+        upper = estimate / error
+    else:
+        # This should not be reachable
+        raise RuntimeError(f"Invalid confidence interval type: {conf_type}.")
+
+    # Force confidence interval lower bound to be 0
+    lower = np.maximum(lower, 0.)
+
+    return lower, upper
+
+
+class Breslow(NonparametricSurvival):
+    r"""Breslow nonparametric survival function estimator.
+
+    Parameters
+    ----------
+    conf_type : {'log', 'linear'}
+        Type of confidence interval to report.
+
+    conf_level : float
+        Confidence level of the confidence intervals.
+
+    var_type : {'aalen', 'greenwood'}
+        Type of variance estimate to compute.
+
+    tie_break : {'discrete', 'continuous'}
+        Specify how to handle tied event times.
+
+    See Also
+    --------
+    survive.NelsonAalen : Nelson-Aalen cumulative hazard function estimator.
+
+    Notes
+    -----
+    The *Breslow estimator* is a nonparametric estimator of the survival
+    function of a time-to-event distribution defined as the exponential of the
+    negative of the Nelson-Aalen cumulative hazard function estimator
+    :math:`\widehat{A}(t)`:
+
+    .. math::
+
+        \widehat{S}(t) = \exp(-\widehat{A}(t)).
+
+    This estimator was introduced in a discussion [1]_ following [2]_. It was
+    later studied by Fleming and Harrington in [3]_, and it is sometimes called
+    the *Fleming-Harrington estimator*.
+
+    The parameters of this class are identical to the parameters of
+    :class:`survive.NelsonAalen`. The Breslow survival function estimates and
+    confidence interval bounds are transformations of the Nelson-Aalen
+    cumulative hazard estimates and confidence interval bounds, respectively.
+    The variance estimate for the Breslow estimator is computed using the
+    variance estimate for the Nelson-Aalen estimator using the Nelson-Aalen
+    estimator's asymptotic normality and the delta method:
+
+    .. math::
+
+        \widehat{\mathrm{Var}}(\widehat{S}(t))
+        = \widehat{S}(t)^2 \widehat{\mathrm{Var}}(\widehat{A}(t))
+
+    Comparisons of the Breslow estimator and the more popular Kaplan-Meier
+    estimator (cf. :class:`survive.KaplanMeier`) can be found in [3]_ and [4]_.
+    One takeaway is that the Breslow estimator was found to be more biased than
+    the Kaplan-Meier estimator, but the Breslow estimator had a lower mean
+    squared error.
+
+    References
+    ----------
+    .. [1] N. E. Breslow. "Discussion of Professor Cox’s Paper". Journal of the
+        Royal Statistical Society. Series B (Methodological), Volume 34,
+        Number 2 (1972), pp. 216--217.
+    .. [2] D. R. Cox. "Regression Models and Life-Tables". Journal of the Royal
+        Statistical Society. Series B (Methodological), Volume 34, Number 2
+        (1972), pp. 187--202. `JSTOR <http://www.jstor.org/stable/2985181>`__.
+    .. [3] Thomas R. Fleming and David P. Harrington. "Nonparametric Estimation
+        of the Survival Distribution in Censored Data". Communications in
+        Statistics - Theory and Methods, Volume 13, Number 20 (1984),
+        pp. 2469--2486. `DOI <https://doi.org/10.1080/03610928408828837>`__.
+    .. [4] Xuelin Huang and Robert L. Strawderman. "A Note on the Breslow
+        Survival Estimator". Journal of Nonparametric Statistics, Volume 18,
+        Number 1 (2006), pp. 45--56.
+        `DOI <https://doi.org/10.1080/10485250500491661>`__.
+    """
+    model_type = "Breslow estimator"
+
+    _conf_types = _NELSON_AALEN_CONF_TYPES
+    _var_types = _NELSON_AALEN_VAR_TYPES
+    _tie_breaks = _NELSON_AALEN_TIE_BREAKS
+
+    def __init__(self, *, conf_type="log", conf_level=0.95, var_type="aalen",
+                 tie_break="discrete"):
+        self.conf_type = conf_type
+        self.conf_level = conf_level
+        self.var_type = var_type
+        self.tie_break = tie_break
+
+    def fit(self, time, **kwargs):
+        """Fit the Breslow estimator to survival data.
+
+        Parameters
+        ----------
+        time : one-dimensional array-like or str or SurvivalData
+            The observed times, or all the survival data. If this is a
+            :class:`survive.SurvivalData` instance, then it is used to fit the
+            estimator and any other parameters are ignored. Otherwise, `time`
+            and the keyword arguments in `kwargs` are used to initialize a
+            :class:`survive.SurvivalData` object on which this estimator is
+            fitted.
+
+        **kwargs : keyword arguments
+            Any additional keyword arguments used to initialize a
+            :class:`survive.SurvivalData` instance.
+
+        Returns
+        -------
+        survive.nonparametric.NelsonAalen
+            This estimator.
+
+        See Also
+        --------
+        survive.SurvivalData : Structure used to store survival data.
+        survive.NelsonAalen : Nelson-Aalen cumulative hazard estimator.
+        """
+
+        nelson_aalen = NelsonAalen(conf_type=self.conf_type,
+                                   conf_level=self.conf_level,
+                                   var_type=self.var_type,
+                                   tie_break=self.tie_break)
+        nelson_aalen.fit(time, **kwargs)
+
+        self._data = nelson_aalen.data_
+
+        self.estimate_ = dict()
+        self.var_ = dict()
+        self.ci_lower_ = dict()
+        self.ci_upper_ = dict()
+        for group in self._data.group_labels:
+            # Extract Nelson-Aalen estimates for the current group
+            na_estimate = nelson_aalen.estimate_[group]
+            na_var = nelson_aalen.var_[group]
+            na_ci_lower = nelson_aalen.ci_lower_[group]
+            na_ci_upper = nelson_aalen.ci_upper_[group]
+
+            # The Breslow estimator is the exponential of the negative of the
+            # Nelson-Aalen estimator
+            survival = np.exp(-na_estimate)
+            self.estimate_[group] = survival
+
+            # Estimate the Breslow estimator variance using the delta method
+            self.var_[group] = (survival ** 2) * na_var
+
+            # Get Breslow estimator confidence intervals by transforming the
+            # Nelson-Aalen estimator confidence intervals
+            self.ci_lower_[group] = np.exp(-na_ci_upper)
+            self.ci_upper_[group] = np.exp(-na_ci_lower)
 
         self.fitted = True
         return self

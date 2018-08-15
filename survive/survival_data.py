@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from .utils import check_data_1d, check_colors, check_float, check_bool
+from .utils import add_legend
 
 # Defaults for SurvivalData string formatting
 _MAX_LINE_LENGTH = 75
@@ -16,41 +17,41 @@ _DEFAULT_FORMATTING = dict(max_line_length=_MAX_LINE_LENGTH,
                            censor_marker=_CENSOR_MARKER)
 
 
-class SurvivalData(object):
+class SurvivalData:
     """Class representing right-censored and left-truncated survival data.
 
     Parameters
     ----------
     time : array-like or str
-        The observed times. If the DataFrame parameter `df` is provided, this
-        can be the name of a column in `df` from which to get the observed
+        The observed times. If the DataFrame parameter `data` is provided, this
+        can be the name of a column in `data` from which to get the observed
         times. Otherwise this should be a one-dimensional array of positive
         numbers.
 
     status : array-like or str, optional
         Censoring indicators. 0 means a right-censored observation, 1 means a
         true failure/event. If not provided, it is assumed that there is no
-        censoring.  If the DataFrame parameter `df` is provided, this can be
-        the name of a column in `df` from which to get the censoring indicators.
-        Otherwise this should be an array of 0's and 1's of the same shape as
-        the array of observed times.
+        censoring.  If the DataFrame parameter `data` is provided, this can be
+        the name of a column in `data` from which to get the censoring
+        indicators. Otherwise this should be an array of 0's and 1's of the same
+        shape as the array of observed times.
 
     entry : array-like or str, optional
         Entry/birth times of the observations (for left-truncated data). If not
         provided, the entry time for each observation is set to 0. If the
-        DataFrame parameter `df` is provided, this can be the name of a column
-        in `df` from which to get the entry times. Otherwise this should be an
+        DataFrame parameter `data` is provided, this can be the name of a column
+        in `data` from which to get the entry times. Otherwise this should be an
         array of non-negative numbers of the same shape as the array of observed
         times.
 
     group : array-like or string, optional
         Group/stratum labels for each observation. If not provided, the entire
-        sample is taken as a single group. If the DataFrame parameter `df`
-        is provided, this can be the name of a column in `df` from which to
+        sample is taken as a single group. If the DataFrame parameter `data`
+        is provided, this can be the name of a column in `data` from which to
         get the group labels. Otherwise this should be an array of the same
         shape as the array of observed times.
 
-    df : pandas.DataFrame, optional
+    data : pandas.DataFrame, optional
         Optional :class:`pandas.DataFrame` from which to extract the data. If
         this parameter is specified, then the parameters `time`, `status`,
         `entry`, and `group` can be column names of this DataFrame.
@@ -122,32 +123,33 @@ class SurvivalData(object):
     # __repr__() methods)
     _formatting: dict
 
-    def __init__(self, time, *, status=None, entry=None, group=None, df=None,
+    def __init__(self, time, *, status=None, entry=None, group=None, data=None,
                  min_time=None, warn=True):
         # Validate parameters
         warn = check_bool(warn)
         min_time = check_float(min_time, allow_none=True)
 
-        if df is not None:
-            # In this case df must be a DataFrame
-            if not isinstance(df, pd.DataFrame):
-                raise TypeError("Parameter 'df' must be a pandas DataFrame.")
+        if data is not None:
+            # In this case `data` must be a DataFrame
+            if not isinstance(data, pd.DataFrame):
+                raise TypeError("Parameter 'data' must be a pandas DataFrame.")
 
             # Try to extract all the necessary information from the DataFrame
-            time = _check_df_column(df, time)
-            status = _check_df_column(df, status)
-            entry = _check_df_column(df, entry)
-            group = _check_df_column(df, group)
+            time = _check_df_column(data, time)
+            status = _check_df_column(data, status)
+            entry = _check_df_column(data, entry)
+            group = _check_df_column(data, group)
 
         # Validate observed times
         time = check_data_1d(time, keep_pandas=False)
-        n = time.shape[0]
+        sample_size = time.shape[0]
 
         # Validate censoring indicators
         if status is None:
             status = np.ones(time.shape[0], dtype=np.int_)
         else:
-            status = check_data_1d(status, n_exact=n, keep_pandas=False)
+            status = check_data_1d(status, n_exact=sample_size,
+                                   keep_pandas=False)
             if any(e not in (0, 1) for e in status):
                 raise ValueError("Entries of 'status' must be 0 or 1.")
 
@@ -155,14 +157,14 @@ class SurvivalData(object):
         if entry is None:
             entry = np.zeros(time.shape[0], dtype=time.dtype)
         else:
-            entry = check_data_1d(entry, n_exact=n, keep_pandas=False)
+            entry = check_data_1d(entry, n_exact=sample_size, keep_pandas=False)
 
         # Validate group labels
         if group is None:
             # The entire sample is a single group labelled 0
             group = np.zeros(time.shape[0], dtype=np.int_)
         else:
-            group = check_data_1d(group, numeric=False, n_exact=n,
+            group = check_data_1d(group, numeric=False, n_exact=sample_size,
                                   keep_pandas=False)
 
         # Ignore times before the minimum time
@@ -499,15 +501,15 @@ class SurvivalData(object):
 
         # Plot the data
         groups_seen = set()
-        for i, (t0, t1, d, g) in enumerate(zip(entry, time, status, group)):
+        for i, (t0, t1, d, grp) in enumerate(zip(entry, time, status, group)):
             # Parameters for the plot
-            color = colors[g]
+            color = colors[grp]
             params = dict()
             if color is not None:
                 params["color"] = color
-            if g not in groups_seen:
-                params["label"] = str(g)
-                groups_seen.add(g)
+            if grp not in groups_seen:
+                params["label"] = str(grp)
+                groups_seen.add(grp)
             params.update(kwargs)
 
             p = ax.plot([t0, t1], [i, i], **params)
@@ -515,7 +517,7 @@ class SurvivalData(object):
                 ax.plot(t1, i, marker="o", markersize=5, color=p[0].get_color())
 
             if color is None:
-                colors[g] = p[0].get_color()
+                colors[grp] = p[0].get_color()
 
         # Configure axes
         ax.set(xlabel="time")
@@ -527,10 +529,7 @@ class SurvivalData(object):
 
         # Display the legend
         if legend:
-            legend_params = dict(loc="best", frameon=True, shadow=True)
-            if legend_kwargs is not None:
-                legend_params.update(legend_kwargs)
-            ax.legend(**legend_params)
+            add_legend(ax, legend_kwargs)
 
         return ax
 
@@ -606,25 +605,20 @@ class SurvivalData(object):
 
         # Display the legend
         if legend:
-            legend_params = dict(loc="best", frameon=True, shadow=True)
-            if legend_kwargs is not None:
-                legend_params.update(legend_kwargs)
-            ax.legend(**legend_params)
+            add_legend(ax, legend_kwargs)
 
         return ax
 
 
-def _check_df_column(df: pd.DataFrame, name):
-    """Check if `name` is the name of a column in a DataFrame `df`. If it is,
+def _check_df_column(data: pd.DataFrame, name):
+    """Check if `name` is the name of a column in a DataFrame `data`. If it is,
     return the column. Otherwise, return `name` unchanged.
     """
     if isinstance(name, str):
-        if name in df.columns:
-            return df[name]
-        else:
-            raise ValueError(f"Column '{name}' not found in DataFrame.")
-    else:
-        return name
+        if name in data.columns:
+            return data[name]
+        raise ValueError(f"Column '{name}' not found in DataFrame.")
+    return name
 
 
 def _n_at_risk(time, t0, t1):

@@ -105,6 +105,7 @@ Functions
     :toctree: generated/
     :template: function.rst
 
+    utils.add_legend
     utils.check_bool
     utils.check_colors
     utils.check_data_1d

@@ -34,12 +34,13 @@ def _check_type(obj, base, allow_none):
     """
     if allow_none and obj is None:
         return None
-    elif isinstance(obj, base):
+
+    if isinstance(obj, base):
         return obj
-    else:
-        expect = base.__name__
-        actual = type(obj).__name__
-        raise TypeError(f"Invalid type. Expected: {expect}. Actual: {actual}.")
+
+    expect = base.__name__
+    actual = type(obj).__name__
+    raise TypeError(f"Invalid type. Expected: {expect}. Actual: {actual}.")
 
 
 def check_bool(tf, *, allow_none=False):
@@ -400,8 +401,7 @@ def check_random_state(random_state):
     """
     if isinstance(random_state, np.random.RandomState):
         return random_state
-    else:
-        return np.random.RandomState(random_state)
+    return np.random.RandomState(random_state)
 
 
 def check_colors(colors, *, n_colors=None, keys=None, palette=None):
@@ -448,7 +448,7 @@ def check_colors(colors, *, n_colors=None, keys=None, palette=None):
             raise RuntimeError("The use of the 'palette' parameter "
                                "requires seaborn to be installed.")
         colors = iter(sns.color_palette(palette, n_colors=n_colors))
-    elif isinstance(colors, list) or isinstance(colors, tuple):
+    elif isinstance(colors, (list, tuple)):
         colors = itertools.cycle(colors)
     elif isinstance(colors, dict):
         if keys is None:

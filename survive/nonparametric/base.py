@@ -7,8 +7,8 @@ import pandas as pd
 
 from ..base import Model, Fittable, Predictor, Summary
 from ..survival_data import SurvivalData
-from ..utils.validation import (check_bool, check_colors, check_data_1d,
-                                check_float)
+from ..utils import check_bool, check_colors, check_data_1d, check_float
+from ..utils import add_legend
 
 
 class NonparametricEstimator(Model, Fittable, Predictor):
@@ -17,6 +17,9 @@ class NonparametricEstimator(Model, Fittable, Predictor):
     # The quantity being estimated (e.g., survival function, cumulative hazard,
     # hazard rate, etc.)
     _estimand: str
+
+    # Estimate at time zero
+    _estimate0: np.float_
 
     # Types of confidence intervals available
     _conf_types: tuple
@@ -37,13 +40,16 @@ class NonparametricEstimator(Model, Fittable, Predictor):
     _tie_break: str
 
     # Estimate at each distinct event time for each group
-    estimate_: list
-    estimate_var_: list
-    estimate_ci_lower_: list
-    estimate_ci_upper_: list
+    estimate_: dict
 
-    # Estimate at time zero
-    _estimate0: np.float_
+    # Estimate of the estimator's variance at each distinct event time for each
+    # group
+    var_: dict
+
+    # Upper and lower confidence interval bounds for the estimate at each
+    # distinct event time for each group
+    ci_lower_: dict
+    ci_upper_: dict
 
     @property
     def conf_type(self):
@@ -164,12 +170,16 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         return_ci = check_bool(return_ci)
         return_se = check_bool(return_se)
 
+        groups = self._data.group_labels
+
         # Initialize arrays
         estimate = np.empty((time.shape[0], self._data.n_groups),
-                            dtype=self.estimate_[0].dtype)
+                            dtype=self.estimate_[groups[0]].dtype)
         std_err = np.empty(estimate.shape, dtype=np.float_)
-        lower = np.empty(estimate.shape, dtype=self.estimate_ci_lower_[0].dtype)
-        upper = np.empty(estimate.shape, dtype=self.estimate_ci_upper_[0].dtype)
+        lower = np.empty(estimate.shape,
+                         dtype=self.ci_lower_[groups[0]].dtype)
+        upper = np.empty(estimate.shape,
+                         dtype=self.ci_upper_[groups[0]].dtype)
 
         # Compute everything within each group
         for j, group in enumerate(self._data.group_labels):
@@ -180,15 +190,15 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
             # Compute everything requested for the current group
             estimate[:, j] = \
-                np.concatenate(([self._estimate0], self.estimate_[j]))[ind]
+                np.concatenate(([self._estimate0], self.estimate_[group]))[ind]
             if return_se:
                 std_err[:, j] = \
-                    np.concatenate(([0.], np.sqrt(self.estimate_var_[j])))[ind]
+                    np.concatenate(([0.], np.sqrt(self.var_[group])))[ind]
             if return_ci:
                 lower[:, j] = np.concatenate(([self._estimate0],
-                                              self.estimate_ci_lower_[j]))[ind]
+                                              self.ci_lower_[group]))[ind]
                 upper[:, j] = np.concatenate(([self._estimate0],
-                                              self.estimate_ci_upper_[j]))[ind]
+                                              self.ci_upper_[group]))[ind]
 
         # Create the DataFrame of estimates
         columns = pd.Index(self._data.group_labels, name="group")
@@ -198,15 +208,15 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         # Return the correct things
         if not (return_se or return_ci):
             return estimate
-        else:
-            # Create all other necessary DataFrames and return
-            out = (estimate,)
-            if return_se:
-                out += (pd.DataFrame(std_err, columns=columns, index=index),)
-            if return_ci:
-                out += (pd.DataFrame(lower, columns=columns, index=index),
-                        pd.DataFrame(upper, columns=columns, index=index))
-            return out
+
+        # Create all other necessary DataFrames and return
+        out = (estimate,)
+        if return_se:
+            out += (pd.DataFrame(std_err, columns=columns, index=index),)
+        if return_ci:
+            out += (pd.DataFrame(lower, columns=columns, index=index),
+                    pd.DataFrame(upper, columns=columns, index=index))
+        return out
 
     @property
     def summary(self):
@@ -355,10 +365,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
         # Display the legend
         if legend and len(groups) > 1:
-            legend_params = dict(loc="best", frameon=True, shadow=True)
-            if legend_kwargs is not None:
-                legend_params.update(legend_kwargs)
-            ax.legend(**legend_params)
+            add_legend(ax, legend_kwargs)
 
         return ax
 
@@ -379,7 +386,7 @@ class NonparametricSurvival(NonparametricEstimator):
         pass
 
     def quantile(self, prob, *, return_ci=False):
-        """Empirical quantile estimates for the time-to-event distribution.
+        r"""Empirical quantile estimates for the time-to-event distribution.
 
         Parameters
         ----------
@@ -449,27 +456,27 @@ class NonparametricSurvival(NonparametricEstimator):
         upper = np.empty(quantiles.shape, dtype=np.float_)
 
         # Compute quantile estimates and confidence intervals if necessary
-        for j, g in enumerate(self._data.group_labels):
-            mask = (self._data.group == g)
+        for j, group in enumerate(self._data.group_labels):
+            mask = (self._data.group == group)
             quantiles[:, j] = \
-                _find_intersection(p=prob, y=self.estimate_[j],
+                _find_intersection(p=prob, y=self.estimate_[group],
                                    tol=self._quantile_tol,
-                                   c_times=self._data.censor[g].time,
-                                   e_times=self._data.events[g].time,
+                                   c_times=self._data.censor[group].time,
+                                   e_times=self._data.events[group].time,
                                    entry=self._data.entry[mask])
 
             if return_ci:
                 lower[:, j] = \
-                    _find_intersection(p=prob, y=self.estimate_ci_lower_[j],
+                    _find_intersection(p=prob, y=self.ci_lower_[group],
                                        tol=self._quantile_tol,
-                                       c_times=self._data.censor[g].time,
-                                       e_times=self._data.events[g].time,
+                                       c_times=self._data.censor[group].time,
+                                       e_times=self._data.events[group].time,
                                        entry=self._data.entry[mask])
                 upper[:, j] = \
-                    _find_intersection(p=prob, y=self.estimate_ci_upper_[j],
+                    _find_intersection(p=prob, y=self.ci_upper_[group],
                                        tol=self._quantile_tol,
-                                       c_times=self._data.censor[g].time,
-                                       e_times=self._data.events[g].time,
+                                       c_times=self._data.censor[group].time,
+                                       e_times=self._data.events[group].time,
                                        entry=self._data.entry[mask])
 
         columns = pd.Index(self._data.group_labels, name="group")
@@ -478,10 +485,10 @@ class NonparametricSurvival(NonparametricEstimator):
 
         if not return_ci:
             return quantiles
-        else:
-            lower = pd.DataFrame(lower, columns=columns, index=index)
-            upper = pd.DataFrame(upper, columns=columns, index=index)
-            return quantiles, lower, upper
+
+        lower = pd.DataFrame(lower, columns=columns, index=index)
+        upper = pd.DataFrame(upper, columns=columns, index=index)
+        return quantiles, lower, upper
 
 
 def _find_intersection(p, y, tol, c_times, e_times, entry):
@@ -511,7 +518,7 @@ def _find_intersection(p, y, tol, c_times, e_times, entry):
     ind2 = np.searchsorted(y + tol, p)
 
     # Find out whether the last time was censored or not
-    if len(c_times) > 0 and c_times.iloc[-1] > e_times.iloc[-1]:
+    if c_times.shape[0] > 0 and c_times.iloc[-1] > e_times.iloc[-1]:
         last = c_times.iloc[-1]
     else:
         last = e_times.iloc[-1]
@@ -575,9 +582,6 @@ class NonparametricEstimatorSummary(Summary):
         if group not in self.model.data_.group_labels:
             raise ValueError(f"Not a known group label: {group}.")
 
-        # Group index
-        i = (self.model.data_.group_labels == group).argmax()
-
         columns = ("time", "events", "at risk", "estimate", "std. error",
                    f"{self.model.conf_level:.0%} c.i. lower",
                    f"{self.model.conf_level:.0%} c.i. upper")
@@ -586,10 +590,10 @@ class NonparametricEstimatorSummary(Summary):
         events = self.model.data_.events[group].n_events
         at_risk = self.model.data_.events[group].n_at_risk
 
-        estimate = self.model.estimate_[i]
-        std_err = np.sqrt(self.model.estimate_var_[i])
-        ci_lower = self.model.estimate_ci_lower_[i]
-        ci_upper = self.model.estimate_ci_upper_[i]
+        estimate = self.model.estimate_[group]
+        std_err = np.sqrt(self.model.var_[group])
+        ci_lower = self.model.ci_lower_[group]
+        ci_upper = self.model.ci_upper_[group]
 
         table_dict = dict(zip(columns, (time, events, at_risk, estimate,
                                         std_err, ci_lower, ci_upper)))
