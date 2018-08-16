@@ -7,8 +7,8 @@ import pandas as pd
 
 from ..base import Model, Fittable, Predictor, Summary
 from ..survival_data import SurvivalData
-from ..utils import check_bool, check_colors, check_data_1d, check_float
 from ..utils import add_legend
+from ..utils import check_bool, check_colors, check_data_1d, check_float
 
 
 class NonparametricEstimator(Model, Fittable, Predictor):
@@ -234,9 +234,9 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         self.check_fitted()
         return NonparametricEstimatorSummary(self)
 
-    def plot(self, *groups, ci=True, ci_kwargs=None, mark_censor=True,
-             mark_censor_kwargs=None, legend=True, legend_kwargs=None,
-             colors=None, palette=None, ax=None, **kwargs):
+    def plot(self, *groups, ci=True, ci_style="fill", ci_kwargs=None,
+             mark_censor=True, mark_censor_kwargs=None, legend=True,
+             legend_kwargs=None, colors=None, palette=None, ax=None, **kwargs):
         """Plot the estimates.
 
         Parameters
@@ -246,25 +246,34 @@ class NonparametricEstimator(Model, Fittable, Predictor):
             given, the curves for all groups are plotted.
 
         ci : bool, optional
-            If True, draw point-wise confidence intervals (confidence bands).
+            If True, draw pointwise confidence intervals.
+
+        ci_style : {"fill", "lines"}, optional
+            Specify how to draw the confidence intervals. If `ci_style` is
+            "fill", the region between the lower and upper confidence interval
+            curves will be filled. If `ci_style` is "lines", only the lower and
+            upper curves will be drawn (this is inspired by the style of
+            confidence intervals drawn by `plot.survfit` in the R package
+            `survival`).
 
         ci_kwargs : dict, optional
             Additional keyword parameters to pass to
-            :meth:`matplotlib.axes.Axes.fill_between` when plotting the
-            confidence band.
+            :meth:`~matplotlib.axes.Axes.fill_between` (if `ci_style` is "fill")
+            or :meth:`~matplotlib.axes.Axes.step` (if `ci_style` is "lines")
+            when plotting the pointwise confidence intervals.
 
         mark_censor : bool, optional
             If True, indicate the censored times by markers on the plot.
 
         mark_censor_kwargs : dict, optional
             Additional keyword parameters to pass to
-            :meth:`matplotlib.axes.Axes.scatter` when marking censored times.
+            :meth:`~matplotlib.axes.Axes.scatter` when marking censored times.
 
         legend : bool, optional
             Indicates whether to display a legend for the plot.
 
         legend_kwargs : dict, optional
-            Keyword parameters to pass to :meth:`matplotlib.axes.Axes.legend`.
+            Keyword parameters to pass to :meth:`~matplotlib.axes.Axes.legend`.
 
         colors : list or tuple or dict or str, optional
             Colors for each group. This is ignored if `palette` is provided.
@@ -282,12 +291,12 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
         **kwargs : keyword arguments
             Additional keyword arguments to pass to
-            :meth:`matplotlib.axes.Axes.step` when plotting the estimates.
+            :meth:`~matplotlib.axes.Axes.step` when plotting the estimates.
 
         Returns
         -------
         matplotlib.axes.Axes
-            The axes on which the plot was drawn.
+            The :class:`~matplotlib.axes.Axes` on which the plot was drawn.
         """
         self.check_fitted()
 
@@ -301,7 +310,7 @@ class NonparametricEstimator(Model, Fittable, Predictor):
                 if group not in self._data.group_labels:
                     raise ValueError(f"Not a known group label: {group}.")
 
-        # Validate color palette
+        # Get colors to cycle through
         colors = check_colors(colors, n_colors=len(groups), keys=groups,
                               palette=palette)
 
@@ -313,7 +322,12 @@ class NonparametricEstimator(Model, Fittable, Predictor):
         # Times in the sample
         time = np.unique(self._data.time)
 
-        estimate, lower, upper = self.predict(time, return_ci=True)
+        ci = check_bool(ci)
+        if ci:
+            estimate, lower, upper = self.predict(time, return_ci=True)
+        else:
+            estimate = self.predict(time)
+            lower = upper = None
 
         # Plot the estimate curves
         for group in groups:
@@ -342,20 +356,31 @@ class NonparametricEstimator(Model, Fittable, Predictor):
                     censor_estimate[j] = estimate[group].loc[time == t]
                 ax.scatter(censor_times, censor_estimate, **marker_params)
 
-            # Plot the confidence bands
+            # Plot the confidence intervals
             if ci:
                 ci_label = f"{self.conf_level:.0%} {self.conf_type} C.I."
                 if len(groups) > 1:
                     ci_label += f" ({group})"
                 c = p[0].get_color()
-                alpha = 0.4 * curve_params.get("alpha", 1.)
-                ci_params = dict(color=c, alpha=alpha, label=ci_label,
-                                 step="post", zorder=2)
-                if ci_kwargs is not None:
-                    ci_params.update(ci_kwargs)
-                ind = (~np.isnan(lower[group])) & (~np.isnan(upper[group]))
-                ax.fill_between(time[ind], lower[group][ind], upper[group][ind],
-                                **ci_params)
+
+                if ci_style == "fill":
+                    alpha = 0.4 * curve_params.get("alpha", 1.)
+                    ci_params = dict(color=c, alpha=alpha, label=ci_label,
+                                     step="post", zorder=2)
+                    if ci_kwargs is not None:
+                        ci_params.update(ci_kwargs)
+                    ax.fill_between(time, lower[group], upper[group],
+                                    **ci_params)
+                elif ci_style == "lines":
+                    ci_params = dict(color=c, label=ci_label, where="post",
+                                     zorder=2, linestyle="--")
+                    if ci_kwargs is not None:
+                        ci_params.update(ci_kwargs)
+                    ax.step(time, lower[group], **ci_params)
+                    ci_params["label"] = None
+                    ax.step(time, np.asarray(upper[group]), **ci_params)
+                else:
+                    raise ValueError(f"Unknown CI style: {ci_style}.")
 
         # Configure axes
         ax.set(xlabel="time", ylabel=self._estimand)
