@@ -6,13 +6,13 @@ Survive
 Survival Analysis in Python
 ---------------------------
 
-.. image:: https://img.shields.io/badge/python-3.7-blue.svg
-    :target: https://badge.fury.io/py/survive
+.. image:: https://img.shields.io/pypi/pyversions/survive.svg
+    :target: https://pypi.org/project/survive/
     :alt: Python Version
 
-.. image:: https://badge.fury.io/py/survive.svg
-    :target: https://badge.fury.io/py/survive
-    :alt: Package Version
+.. image:: https://img.shields.io/pypi/v/survive.svg
+    :target: https://pypi.org/project/survive/
+    :alt: PyPI Package Version
 
 .. image:: https://readthedocs.org/projects/survive-python/badge/?version=latest
     :target: https://survive-python.readthedocs.io/?badge=latest

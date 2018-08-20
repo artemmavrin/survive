@@ -26,6 +26,12 @@ setup(
     extras_require={"seaborn": ["seaborn"]},
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    license="MIT",
     zip_safe=False,
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent"
+    ]
 )
