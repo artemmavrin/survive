@@ -6,13 +6,14 @@ PACKAGE := survive
 DOC := doc
 RM := rm -rf
 
-.PHONY: help install uninstall html test clean lint trim
+.PHONY: help install html test clean lint trim coverage
 
 help:
 	@ echo "Usage:"
 	@ echo "\tmake install   \t install the package using setuptools."
 	@ echo "\tmake html      \t generate documentation using sphinx."
 	@ echo "\tmake test      \t run unit tests using pytest."
+	@ echo "\tmake coverage  \t check code coverage."
 	@ echo "\tmake lint      \t check the code using pylint."
 	@ echo "\tmake clean     \t remove auxiliary files."
 
@@ -43,3 +44,7 @@ clean_doc:
 # Strip any trailing whitespace from source code
 trim:
 	@ find $(PACKAGE) -name "*.py" -exec sed -i 's/[[:space:]]*$$//' {} \;
+
+coverage: clean
+	coverage run -m pytest
+	coverage report
