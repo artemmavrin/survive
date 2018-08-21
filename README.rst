@@ -14,6 +14,10 @@ Survival Analysis in Python
     :target: https://pypi.org/project/survive/
     :alt: PyPI Package Version
 
+.. image:: https://travis-ci.com/artemmavrin/survive.svg?branch=master
+    :target: https://travis-ci.com/artemmavrin/survive
+    :alt: Travis CI Build Status
+
 .. image:: https://readthedocs.org/projects/survive-python/badge/?version=latest
     :target: https://survive-python.readthedocs.io/?badge=latest
     :alt: Documentation Status
