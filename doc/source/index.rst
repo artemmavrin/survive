@@ -18,6 +18,10 @@ Survival Analysis in Python
     :target: https://travis-ci.com/artemmavrin/survive
     :alt: Travis CI Build Status
 
+.. image:: https://codecov.io/gh/artemmavrin/survive/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/artemmavrin/survive
+    :alt: Code Coverage
+
 .. image:: https://readthedocs.org/projects/survive-python/badge/?version=latest
     :target: https://survive-python.readthedocs.io/?badge=latest
     :alt: Documentation Status
