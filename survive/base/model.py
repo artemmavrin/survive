@@ -146,7 +146,7 @@ class Summary:
     def __init__(self, model):
         self.model = model
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         """Return a basic string representation of the model."""
         return self.model.model_type
 

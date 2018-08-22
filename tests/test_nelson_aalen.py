@@ -1,8 +1,11 @@
 """Unit tests for the Nelson-Aalen estimator implementation."""
 
+from itertools import product
+
 import numpy as np
 
 from survive import NelsonAalen
+from survive import SurvivalData
 from survive import datasets
 
 CONF_TYPES = ("linear", "log")
@@ -37,3 +40,19 @@ def test_leukemia():
 
         np.testing.assert_almost_equal(std_err_pred.treatment,
                                        std_err_treatment, decimal=3)
+
+
+def test_fit_predict():
+    """Check all the fit parameters and predictions."""
+    leukemia = datasets.leukemia()
+    surv = SurvivalData("time", status="status", group="group", data=leukemia)
+    for conf_type, var_type, tie_break in product(*NA_PARAMETERS):
+        nelson_aalen = NelsonAalen(conf_type=conf_type, var_type=var_type,
+                                   tie_break=tie_break)
+        nelson_aalen.fit(surv)
+
+        # TODO: figure out better tests here
+        nelson_aalen.predict([0, 1, 2])
+        nelson_aalen.predict([0, 1, 2], return_ci=True)
+        nelson_aalen.summary.table("treatment")
+
