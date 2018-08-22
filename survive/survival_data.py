@@ -260,7 +260,7 @@ class SurvivalData:
         self._formatting = _DEFAULT_FORMATTING.copy()
 
     def to_string(self, group=None, *, max_line_length=None, separator=None,
-                  censor_marker=None):
+                  censor_marker=None):  # pragma: no cover
         """Get a string representation of the survival data within a group.
 
         Parameters
@@ -335,7 +335,7 @@ class SurvivalData:
 
         return "".join(strings)
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         """Get a string representation of the survival data."""
         strings = []
         for i, group in enumerate(self.group_labels):
@@ -445,7 +445,7 @@ class SurvivalData:
         return pd.DataFrame(n_events, columns=columns, index=index)
 
     def plot_lifetimes(self, legend=True, legend_kwargs=None, colors=None,
-                       palette=None, ax=None, **kwargs):
+                       palette=None, ax=None, **kwargs):  # pragma: no cover
         """Plot the observed survival times.
 
         Parameters
@@ -534,7 +534,7 @@ class SurvivalData:
         return ax
 
     def plot_at_risk(self, legend=True, legend_kwargs=None, colors=None,
-                     palette=None, ax=None, **kwargs):
+                     palette=None, ax=None, **kwargs):  # pragma: no cover
         """Plot the at-risk process.
 
         Parameters
