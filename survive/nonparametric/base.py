@@ -236,7 +236,8 @@ class NonparametricEstimator(Model, Fittable, Predictor):
 
     def plot(self, *groups, ci=True, ci_style="fill", ci_kwargs=None,
              mark_censor=True, mark_censor_kwargs=None, legend=True,
-             legend_kwargs=None, colors=None, palette=None, ax=None, **kwargs):
+             legend_kwargs=None, colors=None, palette=None, ax=None,
+             **kwargs):  # pragma: no cover
         """Plot the estimates.
 
         Parameters
@@ -624,7 +625,7 @@ class NonparametricEstimatorSummary(Summary):
                                         std_err, ci_lower, ci_upper)))
         return pd.DataFrame(table_dict)
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         """Return a string representation of the summary."""
         summary = super(NonparametricEstimatorSummary, self).__repr__()
         describe = self.model.data_.describe

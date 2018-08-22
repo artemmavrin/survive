@@ -52,7 +52,7 @@ class Model(metaclass=abc.ABCMeta):
         self._random_state_seed = random_state
         self._random_state = check_random_state(random_state)
 
-    def to_string(self, max_line_length=75):
+    def to_string(self, max_line_length=75):  # pragma: no cover
         """String representation of this model.
 
         Parameters
@@ -109,7 +109,7 @@ class Model(metaclass=abc.ABCMeta):
 
         return f"{class_name}({lines})"
 
-    def __repr__(self):
+    def __repr__(self):  # pragma: no cover
         return self.to_string()
 
     @property
@@ -156,7 +156,7 @@ class Fittable(metaclass=abc.ABCMeta):
     fitted: bool = False
 
     @abc.abstractmethod
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, **kwargs):  # pragma: no cover
         """Fit this model to data.
 
         Returns
@@ -179,7 +179,7 @@ class Predictor(metaclass=abc.ABCMeta):
     """Abstract mixin class for models implementing a :func:`predict` method."""
 
     @abc.abstractmethod
-    def predict(self, *args, **kwargs):
+    def predict(self, *args, **kwargs):  # pragma: no cover
         """Make predictions.
 
         Returns
