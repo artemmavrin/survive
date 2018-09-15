@@ -20,7 +20,7 @@ setup(
     url="https://github.com/artemmavrin/survive",
     author="Artem Mavrin",
     author_email="amavrin@ucsd.edu",
-    packages=sorted(find_packages()),
+    packages=sorted(find_packages(exclude=("*.tests",))),
     include_package_data=True,
     install_requires=["numpy", "scipy", "pandas", "matplotlib"],
     extras_require={"seaborn": ["seaborn"]},
