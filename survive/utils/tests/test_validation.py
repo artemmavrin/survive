@@ -183,7 +183,7 @@ def test_check_data_2d():
     np.testing.assert_equal(check_data_2d(x, p_max=2), x)
     np.testing.assert_equal(check_data_2d(x, p_exact=1), x)
     constraints = (dict(n_min=4), dict(n_max=2), dict(n_exact=1),
-                   dict(p_min=2), dict(p_exact=3))
+                   dict(p_min=2), dict(p_exact=3), dict(p_max=0))
     for constraint in constraints:
         with pytest.raises(ValueError):
             check_data_2d(x, **constraint)

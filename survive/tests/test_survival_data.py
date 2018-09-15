@@ -68,7 +68,28 @@ def test_init_bad_status():
 def test_min_time():
     """Check the min_time initializer parameter."""
     channing = datasets.channing()
-    min_time = 1000
-    surv = SurvivalData("exit", entry="entry", status="status", group="sex",
-                        data=channing, warn=False, min_time=min_time)
-    assert np.all(surv.time >= min_time)
+    min_time = 900
+    for warn in (True, False):
+        if warn:
+            with pytest.warns(RuntimeWarning):
+                surv = SurvivalData("exit", entry="entry", status="status",
+                                    group="sex", data=channing, warn=warn,
+                                    min_time=min_time)
+        else:
+            surv = SurvivalData("exit", entry="entry", status="status",
+                                group="sex", data=channing, warn=warn,
+                                min_time=min_time)
+        assert np.all(surv.time >= min_time)
+
+
+def test_formatting():
+    """Test the string formatting functions."""
+    leukemia = datasets.leukemia()
+    surv = SurvivalData("time", status="status", group="group", data=leukemia)
+    # Good options
+    surv.set_format(censor_marker="!")
+
+    # Bad option
+    with pytest.raises(RuntimeError):
+        surv.set_format(invalid_option="??")
+

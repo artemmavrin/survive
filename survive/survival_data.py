@@ -179,7 +179,8 @@ class SurvivalData:
         mask = (time > entry)
         if warn and not np.all(mask):
             warnings.warn(
-                f"Ignoring {np.sum(~mask)} observations where entry >= time.")
+                f"Ignoring {np.sum(~mask)} observations where entry >= time.",
+                RuntimeWarning)
         time = time[mask]
         status = status[mask]
         entry = entry[mask]

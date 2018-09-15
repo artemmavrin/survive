@@ -1,7 +1,7 @@
 """Plotting helper functions."""
 
 
-def add_legend(ax, legend_kwargs=None):
+def add_legend(ax, legend_kwargs=None):  # pragma: no cover
     """Add a legend to a plot.
 
     Parameters
