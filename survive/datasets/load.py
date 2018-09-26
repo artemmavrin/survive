@@ -1,14 +1,16 @@
 """Functions for loading the packaged datasets."""
 
-import os
 import pathlib
 
 import pandas as pd
 
+# Directory of the data files
+_DATA_DIR = "data"
 
-def _full_filename(filename):
-    cwd = pathlib.Path(os.path.dirname(os.path.realpath(__file__)))
-    return cwd.joinpath("data", filename)
+
+def _file_path(filename):
+    """Get the full file path of a dataset file named `filename`."""
+    return pathlib.Path(__file__).parent / _DATA_DIR / filename
 
 
 def leukemia():
@@ -48,9 +50,10 @@ def leukemia():
     .. [1] D. R. Cox and D. Oakes. Analysis of Survival Data. Chapman & Hall,
         London (1984), pp. ix+201.
     """
-    return pd.read_csv(_full_filename("leukemia.csv"), header=0,
-                       dtype=dict(time="int", status="int", group="category")
-                       ).rename_axis("patient")
+    dtypes = dict(time="int", status="int", group="category")
+    data = pd.read_csv(_file_path("leukemia.csv"), header=0, dtype=dtypes)
+    data.rename_axis("patient", inplace=True)
+    return data
 
 
 def channing():
@@ -105,7 +108,8 @@ def channing():
         R package version 1.3-20 (2017).
         `CRAN <https://cran.r-project.org/web/packages/boot/index.html>`__.
     """
-    return pd.read_csv(_full_filename("channing.csv"), header=0,
-                       dtype=dict(sex="category", entry="int", exit="int",
-                                  time="int", status="int")
-                       ).rename_axis("resident")
+    dtypes = dict(sex="category", entry="int", exit="int", time="int",
+                  status="int")
+    data = pd.read_csv(_file_path("channing.csv"), header=0, dtype=dtypes)
+    data.rename_axis("resident", inplace=True)
+    return data
