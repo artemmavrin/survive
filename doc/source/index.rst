@@ -39,7 +39,7 @@ the analysis of survival, lifetime, and event data.
     :caption: Contents:
 
     installation
-    examples
+    examples/index
     theory
     api
 
